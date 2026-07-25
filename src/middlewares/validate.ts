@@ -9,8 +9,12 @@ export function validate(schema: ZodType, part: RequestPart = 'body') {
     const result = schema.safeParse(req[part]);
 
     if (!result.success) {
+      const flat = result.error.flatten();
       return next(
-        new ValidationError('Validation failed', result.error.flatten().fieldErrors),
+        new ValidationError('Validation failed', {
+          ...flat.fieldErrors,
+          ...(flat.formErrors.length ? { _form: flat.formErrors } : {}),
+        }),
       );
     }
 

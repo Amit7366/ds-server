@@ -7,6 +7,7 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
 import authRoutes from './modules/auth/auth.route';
 import userRoutes from './modules/user/user.route';
+import gameRoutes from './modules/game/game.route';
 
 export function createApp() {
   const app = express();
@@ -19,18 +20,21 @@ export function createApp() {
     }),
   );
 
-  app.use(
-    cors({
+  // Dashboard APIs: locked to client origin. Game integration API: open (secret in body).
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/game/')) {
+      return cors({ origin: true, credentials: false })(req, res, next);
+    }
+    return cors({
       origin: env.CLIENT_ORIGIN,
       credentials: true,
-    }),
-  );
+    })(req, res, next);
+  });
 
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
-  // Sanitize operator injection in body (Express 5 req.query is read-only)
   app.use((req, _res, next) => {
     if (req.body && typeof req.body === 'object') {
       sanitizeObject(req.body);
@@ -38,7 +42,6 @@ export function createApp() {
     next();
   });
 
-  // Global API rate limit (abuse protection)
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 500,
@@ -57,6 +60,7 @@ export function createApp() {
 
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', userRoutes);
+  app.use('/api/game/v1', gameRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

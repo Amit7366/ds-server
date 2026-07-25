@@ -17,6 +17,10 @@ const envSchema = z.object({
   SUPER_ADMIN_NAME: z.string().default('Super Admin'),
   CLIENT_ORIGIN: z.string().url().default('http://localhost:3000'),
   API_SECRET_PEPPER: z.string().min(16, 'API_SECRET_PEPPER must be at least 16 characters'),
+  GAME_LAUNCH_UPSTREAM_URL: z
+    .string()
+    .url()
+    .default('https://txserver.site/testGameLaunch.php'),
 });
 
 const parsed = envSchema.safeParse(process.env);
