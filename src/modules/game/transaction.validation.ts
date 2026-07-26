@@ -27,8 +27,24 @@ export const ingestTransactionsSchema = z.object({
     .max(500, 'records cannot exceed 500 items per request'),
 });
 
+export const fetchTransactionsSchema = z.object({
+  apiSecret: z.string().min(1, 'apiSecret is required'),
+  prefix: z
+    .string()
+    .trim()
+    .length(5, 'prefix must be 5 characters')
+    .transform((v) => v.toUpperCase()),
+  fromDate: z.string().trim().min(1).optional(),
+  toDate: z.string().trim().min(1).optional(),
+  member_account: z.string().trim().min(1).optional(),
+  game_uid: z.string().trim().min(1).optional(),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(200).optional().default(50),
+});
+
 export type GameTransactionRecordInput = z.infer<typeof gameTransactionRecordSchema>;
 export type IngestTransactionsInput = z.infer<typeof ingestTransactionsSchema>;
+export type FetchTransactionsInput = z.infer<typeof fetchTransactionsSchema>;
 
 /** Derive user prefix from member_account suffix (h037ad{playerId}{PREFIX}). */
 export function extractPrefixFromMemberAccount(memberAccount: string): string {
