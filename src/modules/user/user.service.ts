@@ -71,6 +71,7 @@ export class UserService {
       apiSecretEncrypted,
       whitelistDomain: input.whitelistDomain ?? '',
       whitelistIp: input.whitelistIp ?? '',
+      ggrBalance: input.ggrBalance ?? 0,
       status: input.status,
       serviceType: input.serviceType,
       createdBy: createdById ?? null,
@@ -147,6 +148,7 @@ export class UserService {
     if (input.phone !== undefined) user.phone = input.phone;
     if (input.whitelistDomain !== undefined) user.whitelistDomain = input.whitelistDomain;
     if (input.whitelistIp !== undefined) user.whitelistIp = input.whitelistIp;
+    if (input.ggrBalance !== undefined) user.ggrBalance = input.ggrBalance;
     if (input.status !== undefined) user.status = input.status;
     if (input.serviceType !== undefined) user.serviceType = input.serviceType;
     if (input.password) {

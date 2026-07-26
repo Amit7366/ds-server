@@ -12,6 +12,7 @@ export interface IUser {
   apiSecretEncrypted?: string | null;
   whitelistDomain: string;
   whitelistIp: string;
+  ggrBalance: number;
   status: UserStatus;
   serviceType: ServiceType;
   createdBy?: Types.ObjectId | null;
@@ -91,6 +92,11 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
       trim: true,
       maxlength: 255,
     },
+    ggrBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: Object.values(UserStatus),
@@ -138,6 +144,7 @@ userSchema.methods.toSafeObject = function toSafeObject(
     prefix: this.prefix,
     whitelistDomain: this.whitelistDomain,
     whitelistIp: this.whitelistIp,
+    ggrBalance: this.ggrBalance ?? 0,
     status: this.status,
     serviceType: this.serviceType,
     createdBy: this.createdBy ? this.createdBy.toString() : null,

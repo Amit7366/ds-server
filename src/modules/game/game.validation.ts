@@ -67,9 +67,15 @@ const MEMBER_ACCOUNT_PREFIX = 'h037ad';
 
 export function toTxGameLaunchBody(input: GameLaunchInput): TxGameLaunchBody {
   const playerId = input.playerId.trim();
-  const member_account = playerId.startsWith(MEMBER_ACCOUNT_PREFIX)
+  const userPrefix = input.prefix.trim().toUpperCase();
+
+  let member_account = playerId.startsWith(MEMBER_ACCOUNT_PREFIX)
     ? playerId
     : `${MEMBER_ACCOUNT_PREFIX}${playerId}`;
+
+  if (userPrefix && !member_account.endsWith(userPrefix)) {
+    member_account = `${member_account}${userPrefix}`;
+  }
 
   return {
     member_account,

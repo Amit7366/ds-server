@@ -19,6 +19,7 @@ export const createUserSchema = z.object({
     .regex(/[0-9]/, 'Password must contain a number'),
   whitelistDomain: z.string().trim().max(255).optional().default(''),
   whitelistIp: z.string().trim().max(255).optional().default(''),
+  ggrBalance: z.coerce.number({ error: 'ggrBalance must be a number' }).min(0).optional().default(0),
   status: z.nativeEnum(UserStatus).optional().default(UserStatus.ACTIVE),
   serviceType: z.nativeEnum(ServiceType).optional().default(ServiceType.STAGING),
   prefix: z
@@ -44,6 +45,7 @@ export const updateUserSchema = z
       .optional(),
     whitelistDomain: z.string().trim().max(255).optional(),
     whitelistIp: z.string().trim().max(255).optional(),
+    ggrBalance: z.coerce.number({ error: 'ggrBalance must be a number' }).min(0).optional(),
     status: z.nativeEnum(UserStatus).optional(),
     serviceType: z.nativeEnum(ServiceType).optional(),
   })
