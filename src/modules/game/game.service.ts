@@ -2,7 +2,7 @@ import { env } from '../../config/env';
 import { User } from '../user/user.model';
 import { UserStatus } from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
-import { AppError, ForbiddenError, UnauthorizedError } from '../../utils/errors';
+import { AppError, ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
 import { GameLaunchInput, toTxGameLaunchBody } from './game.validation';
 
 type TxGameLaunchResponse = {
@@ -31,6 +31,14 @@ export class GameService {
 
     if (user.status === UserStatus.PAUSE) {
       throw new ForbiddenError('Account is paused');
+    }
+
+    const ggrBalance = user.ggrBalance ?? 0;
+    if (input.balance > ggrBalance) {
+      throw new ValidationError('Balance exceeds available GGR balance', {
+        balance: input.balance,
+        ggrBalance,
+      });
     }
 
     const upstreamBody = toTxGameLaunchBody(input);
