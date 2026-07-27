@@ -104,6 +104,7 @@ export class TransactionService {
               },
             },
           ],
+          { updatePipeline: true },
         );
 
         // Only report when a matching user was updated
