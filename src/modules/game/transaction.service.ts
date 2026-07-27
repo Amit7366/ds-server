@@ -1,5 +1,5 @@
 import { User } from '../user/user.model';
-import { UserStatus } from '../../utils/constants';
+import { UserRole, UserStatus } from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
 import { ForbiddenError, UnauthorizedError } from '../../utils/errors';
 import { GameTransaction } from './transaction.model';
@@ -9,9 +9,31 @@ import {
   IngestTransactionsInput,
 } from './transaction.validation';
 
+type IngestDoc = {
+  agency_uid: string;
+  serial_number: string;
+  currency_code: string;
+  game_uid: string;
+  member_account: string;
+  prefix: string;
+  bet_amount: string;
+  win_amount: string;
+  timestamp: string;
+  game_round: string;
+};
+
+function parseAmount(value: string | undefined | null): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 10000) / 10000;
+}
+
 export class TransactionService {
   async ingest(input: IngestTransactionsInput) {
-    const docs = input.records.map((record) => ({
+    const docs: IngestDoc[] = input.records.map((record) => ({
       agency_uid: record.agency_uid,
       serial_number: record.serial_number,
       currency_code: record.currency_code,
@@ -36,10 +58,71 @@ export class TransactionService {
     const inserted = result.upsertedCount;
     const duplicates = Math.max(0, docs.length - inserted);
 
+    // Only newly inserted rows (not duplicate serial_number) affect GGR.
+    const newlyInserted: IngestDoc[] = [];
+    const upsertedIds = result.upsertedIds ?? {};
+    for (const [indexKey, _id] of Object.entries(upsertedIds)) {
+      const index = Number(indexKey);
+      if (Number.isInteger(index) && docs[index] && _id) {
+        newlyInserted.push(docs[index]);
+      }
+    }
+
+    const deductionByPrefix = new Map<string, number>();
+    for (const doc of newlyInserted) {
+      if (!doc.prefix) continue;
+
+      const winAmount = parseAmount(doc.win_amount);
+      // Win: win_amount > 0 → no GGR change
+      if (winAmount > 0) continue;
+
+      const betAmount = parseAmount(doc.bet_amount);
+      if (betAmount <= 0) continue;
+
+      const lossDeduction = betAmount * 0.1;
+      deductionByPrefix.set(
+        doc.prefix,
+        (deductionByPrefix.get(doc.prefix) ?? 0) + lossDeduction,
+      );
+    }
+
+    const deductions: { prefix: string; amount: number }[] = [];
+
+    await Promise.all(
+      [...deductionByPrefix.entries()].map(async ([prefix, rawAmount]) => {
+        const amount = roundMoney(rawAmount);
+        if (amount <= 0) return;
+
+        const updateResult = await User.updateOne(
+          { prefix, role: UserRole.USER },
+          [
+            {
+              $set: {
+                ggrBalance: {
+                  $max: [0, { $subtract: [{ $ifNull: ['$ggrBalance', 0] }, amount] }],
+                },
+              },
+            },
+          ],
+        );
+
+        // Only report when a matching user was updated
+        if (updateResult.matchedCount > 0) {
+          deductions.push({ prefix, amount });
+        }
+      }),
+    );
+
+    deductions.sort((a, b) => a.prefix.localeCompare(b.prefix));
+
     return {
       received: docs.length,
       inserted,
       duplicates,
+      ggr: {
+        processed: newlyInserted.length,
+        deductions,
+      },
     };
   }
 
