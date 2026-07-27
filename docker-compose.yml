@@ -1,0 +1,32 @@
+services:
+  server:
+    container_name: apivexo-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5010:5001"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "5001"
+    networks:
+      - apivexo-net
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5001/api/v1/auth/me').then(r=>process.exit(r.status===401||r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  apivexo-net:
+    external: true
