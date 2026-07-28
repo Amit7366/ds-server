@@ -53,9 +53,11 @@ export class GameService {
     const user = await this.authenticatePartner(input.prefix, input.apiSecret);
 
     const ggrBalance = user.ggrBalance ?? 0;
-    if (input.balance > ggrBalance) {
+    const ggrRequired = Math.round(input.balance * 0.1 * 10000) / 10000;
+    if (ggrRequired > ggrBalance) {
       throw new ValidationError('Balance exceeds available GGR balance', {
         balance: input.balance,
+        ggrRequired,
         ggrBalance,
       });
     }
