@@ -46,6 +46,14 @@ export class TransactionService {
       game_round: record.game_round,
     }));
 
+    // Know which serials are new before write — more reliable than bulkWrite.upsertedIds.
+    const serials = docs.map((d) => d.serial_number);
+    const existing = await GameTransaction.find({ serial_number: { $in: serials } })
+      .select('serial_number')
+      .lean();
+    const existingSet = new Set(existing.map((row) => row.serial_number));
+    const newDocs = docs.filter((d) => !existingSet.has(d.serial_number));
+
     const ops = docs.map((doc) => ({
       updateOne: {
         filter: { serial_number: doc.serial_number },
@@ -58,14 +66,26 @@ export class TransactionService {
     const inserted = result.upsertedCount;
     const duplicates = Math.max(0, docs.length - inserted);
 
-    // Only newly inserted rows (not duplicate serial_number) affect GGR.
+    // Prefer upsertedIds when available; fall back to pre-checked newDocs only if inserts happened.
     const newlyInserted: IngestDoc[] = [];
-    const upsertedIds = result.upsertedIds ?? {};
-    for (const [indexKey, _id] of Object.entries(upsertedIds)) {
-      const index = Number(indexKey);
-      if (Number.isInteger(index) && docs[index] && _id) {
-        newlyInserted.push(docs[index]);
+    const upsertedIds = result.upsertedIds as
+      | Record<string, unknown>
+      | Map<number, unknown>
+      | undefined;
+
+    if (upsertedIds instanceof Map && upsertedIds.size > 0) {
+      for (const [index] of upsertedIds) {
+        if (docs[index]) newlyInserted.push(docs[index]);
       }
+    } else if (upsertedIds && Object.keys(upsertedIds).length > 0) {
+      for (const [indexKey, _id] of Object.entries(upsertedIds)) {
+        const index = Number(indexKey);
+        if (Number.isInteger(index) && docs[index] && _id) {
+          newlyInserted.push(docs[index]);
+        }
+      }
+    } else if (inserted > 0) {
+      newlyInserted.push(...newDocs);
     }
 
     const deductionByPrefix = new Map<string, number>();
@@ -88,31 +108,29 @@ export class TransactionService {
 
     const deductions: { prefix: string; amount: number }[] = [];
 
-    await Promise.all(
-      [...deductionByPrefix.entries()].map(async ([prefix, rawAmount]) => {
-        const amount = roundMoney(rawAmount);
-        if (amount <= 0) return;
+    for (const [prefix, rawAmount] of deductionByPrefix.entries()) {
+      const amount = roundMoney(rawAmount);
+      if (amount <= 0) continue;
 
-        const updateResult = await User.updateOne(
-          { prefix, role: UserRole.USER },
-          [
-            {
-              $set: {
-                ggrBalance: {
-                  $max: [0, { $subtract: [{ $ifNull: ['$ggrBalance', 0] }, amount] }],
-                },
-              },
+      // Native collection update avoids Mongoose pipeline option quirks.
+      const updateResult = await User.collection.updateOne({ prefix, role: UserRole.USER }, [
+        {
+          $set: {
+            ggrBalance: {
+              $max: [0, { $subtract: [{ $ifNull: ['$ggrBalance', 0] }, amount] }],
             },
-          ],
-          { updatePipeline: true },
-        );
+            updatedAt: new Date(),
+          },
+        },
+      ]);
 
-        // Only report when a matching user was updated
-        if (updateResult.matchedCount > 0) {
-          deductions.push({ prefix, amount });
-        }
-      }),
-    );
+      if (updateResult.matchedCount > 0) {
+        deductions.push({ prefix, amount });
+        console.log(`[ggr] prefix=${prefix} deducted=${amount}`);
+      } else {
+        console.warn(`[ggr] no user found for prefix=${prefix} amount=${amount}`);
+      }
+    }
 
     deductions.sort((a, b) => a.prefix.localeCompare(b.prefix));
 
