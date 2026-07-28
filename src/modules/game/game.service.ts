@@ -3,7 +3,12 @@ import { User } from '../user/user.model';
 import { UserStatus } from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
 import { AppError, ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
-import { GameLaunchInput, toTxGameLaunchBody } from './game.validation';
+import {
+  GameLaunchInput,
+  GetWithdrawInput,
+  toTxGameLaunchBody,
+  toTxGetWithdrawBody,
+} from './game.validation';
 
 type TxGameLaunchResponse = {
   code?: number;
@@ -16,15 +21,23 @@ type TxGameLaunchResponse = {
   [key: string]: unknown;
 };
 
+type TxGetWithdrawResponse = {
+  status?: boolean;
+  message?: string;
+  amount?: string | number;
+  error?: unknown;
+  [key: string]: unknown;
+};
+
 export class GameService {
-  async launch(input: GameLaunchInput) {
-    const user = await User.findOne({ prefix: input.prefix }).select('+apiSecretHash');
+  private async authenticatePartner(prefix: string, apiSecret: string) {
+    const user = await User.findOne({ prefix }).select('+apiSecretHash');
 
     if (!user) {
       throw new UnauthorizedError('Invalid prefix or API secret');
     }
 
-    const validSecret = await verifyApiSecret(input.apiSecret, user.apiSecretHash);
+    const validSecret = await verifyApiSecret(apiSecret, user.apiSecretHash);
     if (!validSecret) {
       throw new UnauthorizedError('Invalid prefix or API secret');
     }
@@ -32,6 +45,12 @@ export class GameService {
     if (user.status === UserStatus.PAUSE) {
       throw new ForbiddenError('Account is paused');
     }
+
+    return user;
+  }
+
+  async launch(input: GameLaunchInput) {
+    const user = await this.authenticatePartner(input.prefix, input.apiSecret);
 
     const ggrBalance = user.ggrBalance ?? 0;
     if (input.balance > ggrBalance) {
@@ -42,12 +61,13 @@ export class GameService {
     }
 
     const upstreamBody = toTxGameLaunchBody(input);
-    const upstream = await this.callUpstream(upstreamBody);
+    const upstream = await this.callLaunchUpstream(upstreamBody);
 
     if (upstream.code !== 0) {
       throw new AppError(upstream.msg || 'Game launch failed upstream', 502, {
         code: upstream.code,
         msg: upstream.msg,
+        payload: upstream.payload,
         raw: upstream.raw,
       });
     }
@@ -70,7 +90,29 @@ export class GameService {
     return upstream.payload;
   }
 
-  private async callUpstream(
+  async getWithdraw(input: GetWithdrawInput) {
+    await this.authenticatePartner(input.prefix, input.apiSecret);
+
+    const upstreamBody = toTxGetWithdrawBody(input);
+    const upstream = await this.callWithdrawUpstream(upstreamBody);
+
+    if (upstream.status !== true) {
+      throw new AppError(upstream.message || 'Withdraw failed upstream', 502, {
+        status: upstream.status,
+        message: upstream.message,
+        amount: upstream.amount,
+        error: upstream.error,
+      });
+    }
+
+    return {
+      amount: upstream.amount,
+      status: upstream.status,
+      message: upstream.message,
+    };
+  }
+
+  private async callLaunchUpstream(
     body: ReturnType<typeof toTxGameLaunchBody>,
   ): Promise<TxGameLaunchResponse> {
     let response: Response;
@@ -102,6 +144,46 @@ export class GameService {
 
     if (!response.ok && data.code === undefined) {
       throw new AppError('Game launch provider request failed', 502, {
+        status: response.status,
+        body: data,
+      });
+    }
+
+    return data;
+  }
+
+  private async callWithdrawUpstream(
+    body: ReturnType<typeof toTxGetWithdrawBody>,
+  ): Promise<TxGetWithdrawResponse> {
+    let response: Response;
+    try {
+      response = await fetch(env.GET_WITHDRAW_UPSTREAM_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      throw new AppError('Withdraw provider unavailable', 502, {
+        reason: err instanceof Error ? err.message : 'network_error',
+      });
+    }
+
+    const text = await response.text();
+    let data: TxGetWithdrawResponse;
+    try {
+      data = JSON.parse(text) as TxGetWithdrawResponse;
+    } catch {
+      throw new AppError('Invalid response from withdraw provider', 502, {
+        status: response.status,
+        body: text.slice(0, 500),
+      });
+    }
+
+    if (!response.ok && data.status === undefined) {
+      throw new AppError('Withdraw provider request failed', 502, {
         status: response.status,
         body: data,
       });

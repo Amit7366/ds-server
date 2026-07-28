@@ -2,6 +2,7 @@ import { User } from '../user/user.model';
 import { UserRole, UserStatus } from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
 import { ForbiddenError, UnauthorizedError } from '../../utils/errors';
+import { buildMemberAccount, toPublicPlayerId } from './game.validation';
 import { GameTransaction } from './transaction.model';
 import {
   extractPrefixFromMemberAccount,
@@ -166,7 +167,8 @@ export class TransactionService {
     };
 
     if (input.member_account) {
-      filter.member_account = input.member_account;
+      // Accept plain playerId or full provider member_account; query always uses stored format.
+      filter.member_account = buildMemberAccount(input.member_account, user.prefix);
     }
     if (input.game_uid) {
       filter.game_uid = input.game_uid;
@@ -194,7 +196,7 @@ export class TransactionService {
         serial_number: doc.serial_number,
         currency_code: doc.currency_code,
         game_uid: doc.game_uid,
-        member_account: doc.member_account,
+        member_account: toPublicPlayerId(doc.member_account, user.prefix),
         bet_amount: doc.bet_amount,
         win_amount: doc.win_amount,
         timestamp: doc.timestamp,
@@ -209,5 +211,4 @@ export class TransactionService {
     };
   }
 }
-
 export const transactionService = new TransactionService();

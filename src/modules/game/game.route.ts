@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { validate } from '../../middlewares/validate';
-import { gameLaunchSchema } from './game.validation';
+import { gameLaunchSchema, getWithdrawSchema } from './game.validation';
 import {
   fetchTransactionsSchema,
   ingestTransactionsSchema,
@@ -18,6 +18,17 @@ const launchLimiter = rateLimit({
   message: {
     success: false,
     message: 'Too many launch requests. Please try again later.',
+  },
+});
+
+const withdrawLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many withdraw requests. Please try again later.',
   },
 });
 
@@ -48,6 +59,13 @@ router.post(
   launchLimiter,
   validate(gameLaunchSchema),
   gameController.gameLaunch,
+);
+
+router.post(
+  '/getwithdraw',
+  withdrawLimiter,
+  validate(getWithdrawSchema),
+  gameController.getWithdraw,
 );
 
 router.post(

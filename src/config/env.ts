@@ -20,7 +20,21 @@ const envSchema = z.object({
   GAME_LAUNCH_UPSTREAM_URL: z
     .string()
     .url()
-    .default('https://txserver.site/testGameLaunch.php'),
+    .default('https://txserver.site/tgamelaunch.php'),
+  GAME_LAUNCH_AGENCY_UID: z
+    .string()
+    .trim()
+    .min(1, 'GAME_LAUNCH_AGENCY_UID is required')
+    .default('0b98f74aa493413ce882a9edef9f9ede'),
+  GET_WITHDRAW_UPSTREAM_URL: z
+    .string()
+    .url()
+    .default('https://txserver.site/tgetwithdraw.php'),
+  GET_WITHDRAW_AGENCY_UID: z
+    .string()
+    .trim()
+    .min(1, 'GET_WITHDRAW_AGENCY_UID is required')
+    .default('d5806564bab3b30e0eba2148ebb8e7bd'),
 });
 
 const parsed = envSchema.safeParse(process.env);
