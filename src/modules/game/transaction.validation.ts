@@ -46,7 +46,7 @@ export type GameTransactionRecordInput = z.infer<typeof gameTransactionRecordSch
 export type IngestTransactionsInput = z.infer<typeof ingestTransactionsSchema>;
 export type FetchTransactionsInput = z.infer<typeof fetchTransactionsSchema>;
 
-/** Derive user prefix from member_account suffix (h037ad{playerId}{PREFIX}). */
+/** Derive user prefix from member_account suffix (h94044{playerId}{PREFIX}). */
 export function extractPrefixFromMemberAccount(memberAccount: string): string {
   const trimmed = memberAccount.trim();
   if (trimmed.length < 5) return '';
