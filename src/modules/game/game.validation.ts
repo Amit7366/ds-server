@@ -37,7 +37,8 @@ export function toUpstreamTimestamp(value: unknown): string {
   return new Date().toISOString();
 }
 
-const MEMBER_ACCOUNT_PREFIX = 'h037ad';
+// const MEMBER_ACCOUNT_PREFIX = 'h037ad';
+const MEMBER_ACCOUNT_PREFIX = 'h94044';
 
 /** Build provider member_account: h037ad + playerId + account prefix (hidden from partners). */
 export function buildMemberAccount(playerId: string, prefix: string): string {
