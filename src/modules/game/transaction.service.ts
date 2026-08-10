@@ -1,5 +1,10 @@
 import { User } from '../user/user.model';
-import { UserRole, UserStatus } from '../../utils/constants';
+import {
+  DEFAULT_GGR_DEDUCTION_PERCENT,
+  resolveGgrDeductionRate,
+  UserRole,
+  UserStatus,
+} from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
 import { ForbiddenError, UnauthorizedError } from '../../utils/errors';
 import { buildMemberAccount, toPublicPlayerId } from './game.validation';
@@ -90,6 +95,26 @@ export class TransactionService {
     }
 
     const deductionByPrefix = new Map<string, number>();
+    const prefixes = [
+      ...new Set(
+        newlyInserted
+          .map((doc) => doc.prefix)
+          .filter((prefix): prefix is string => Boolean(prefix)),
+      ),
+    ];
+    const rateByPrefix = new Map<string, number>();
+    if (prefixes.length > 0) {
+      const partners = await User.find({
+        prefix: { $in: prefixes },
+        role: UserRole.USER,
+      })
+        .select('prefix ggrDeductionPercent')
+        .lean();
+      for (const partner of partners) {
+        rateByPrefix.set(partner.prefix, resolveGgrDeductionRate(partner.ggrDeductionPercent));
+      }
+    }
+
     for (const doc of newlyInserted) {
       if (!doc.prefix) continue;
 
@@ -100,7 +125,8 @@ export class TransactionService {
       const betAmount = parseAmount(doc.bet_amount);
       if (betAmount <= 0) continue;
 
-      const lossDeduction = betAmount * 0.1;
+      const rate = rateByPrefix.get(doc.prefix) ?? resolveGgrDeductionRate(null);
+      const lossDeduction = betAmount * rate;
       deductionByPrefix.set(
         doc.prefix,
         (deductionByPrefix.get(doc.prefix) ?? 0) + lossDeduction,
@@ -202,6 +228,65 @@ export class TransactionService {
         timestamp: doc.timestamp,
         game_round: doc.game_round,
       })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    };
+  }
+
+  /**
+   * Dashboard list for a logged-in partner: filter by prefix, compute live GGR deduction.
+   */
+  async listForDashboard(input: {
+    prefix: string;
+    ggrDeductionPercent?: number | null;
+    page: number;
+    limit: number;
+  }) {
+    const prefix = input.prefix.trim().toUpperCase();
+    const rate = resolveGgrDeductionRate(input.ggrDeductionPercent);
+    const percent =
+      typeof input.ggrDeductionPercent === 'number' && Number.isFinite(input.ggrDeductionPercent)
+        ? input.ggrDeductionPercent
+        : DEFAULT_GGR_DEDUCTION_PERCENT;
+
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const filter = { prefix };
+
+    const [docs, total] = await Promise.all([
+      GameTransaction.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
+      GameTransaction.countDocuments(filter),
+    ]);
+
+    const items = docs.map((doc) => {
+      const betAmount = parseAmount(doc.bet_amount);
+      const winAmount = parseAmount(doc.win_amount);
+      const isWin = winAmount > 0;
+      const ggrDeduction = isWin || betAmount <= 0 ? 0 : roundMoney(betAmount * rate);
+
+      return {
+        id: String(doc._id),
+        serial_number: doc.serial_number,
+        game_uid: doc.game_uid,
+        member_account: toPublicPlayerId(doc.member_account, prefix),
+        bet_amount: betAmount,
+        win_amount: winAmount,
+        result: isWin ? ('win' as const) : ('loss' as const),
+        ggrDeduction,
+        currency_code: doc.currency_code,
+        timestamp: doc.timestamp,
+        game_round: doc.game_round,
+      };
+    });
+
+    return {
+      ggrDeductionPercent: percent,
+      items,
       pagination: {
         page,
         limit,

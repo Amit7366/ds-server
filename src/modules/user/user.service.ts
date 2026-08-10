@@ -1,10 +1,11 @@
 import {
   CreateUserInput,
+  ListMyTransactionsQuery,
   ListUsersQuery,
   UpdateUserInput,
 } from './user.validation';
 import { User, IUserDocument } from './user.model';
-import { UserRole } from '../../utils/constants';
+import { DEFAULT_GGR_DEDUCTION_PERCENT, UserRole } from '../../utils/constants';
 import {
   decryptApiSecret,
   encryptApiSecret,
@@ -15,6 +16,7 @@ import {
   maskSecret,
 } from '../../utils/crypto';
 import { AppError, ConflictError, NotFoundError } from '../../utils/errors';
+import { transactionService } from '../game/transaction.service';
 
 async function ensureUniquePrefix(preferred?: string): Promise<string> {
   if (preferred) {
@@ -72,6 +74,7 @@ export class UserService {
       whitelistDomain: input.whitelistDomain ?? '',
       whitelistIp: input.whitelistIp ?? '',
       ggrBalance: input.ggrBalance ?? 0,
+      ggrDeductionPercent: input.ggrDeductionPercent ?? DEFAULT_GGR_DEDUCTION_PERCENT,
       status: input.status,
       serviceType: input.serviceType,
       createdBy: createdById ?? null,
@@ -138,6 +141,27 @@ export class UserService {
     return withCredentialMeta(user, Boolean(user.apiSecretEncrypted));
   }
 
+  async listMyTransactions(userId: string, query: ListMyTransactionsQuery) {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const listed = await transactionService.listForDashboard({
+      prefix: user.prefix,
+      ggrDeductionPercent: user.ggrDeductionPercent,
+      page: query.page,
+      limit: query.limit,
+    });
+
+    return {
+      currentGgrBalance: user.ggrBalance ?? 0,
+      ggrDeductionPercent: listed.ggrDeductionPercent,
+      items: listed.items,
+      pagination: listed.pagination,
+    };
+  }
+
   async updateUser(id: string, input: UpdateUserInput) {
     const user = await User.findById(id).select('+apiSecretEncrypted');
     if (!user) {
@@ -149,6 +173,9 @@ export class UserService {
     if (input.whitelistDomain !== undefined) user.whitelistDomain = input.whitelistDomain;
     if (input.whitelistIp !== undefined) user.whitelistIp = input.whitelistIp;
     if (input.ggrBalance !== undefined) user.ggrBalance = input.ggrBalance;
+    if (input.ggrDeductionPercent !== undefined) {
+      user.ggrDeductionPercent = input.ggrDeductionPercent;
+    }
     if (input.status !== undefined) user.status = input.status;
     if (input.serviceType !== undefined) user.serviceType = input.serviceType;
     if (input.password) {

@@ -20,6 +20,13 @@ export const createUserSchema = z.object({
   whitelistDomain: z.string().trim().max(255).optional().default(''),
   whitelistIp: z.string().trim().max(255).optional().default(''),
   ggrBalance: z.coerce.number({ error: 'ggrBalance must be a number' }).min(0).optional().default(0),
+  ggrDeductionPercent: z.coerce
+    .number({ error: 'ggrDeductionPercent must be a number' })
+    .int('ggrDeductionPercent must be an integer')
+    .min(0)
+    .max(100)
+    .optional()
+    .default(8),
   status: z.nativeEnum(UserStatus).optional().default(UserStatus.ACTIVE),
   serviceType: z.nativeEnum(ServiceType).optional().default(ServiceType.STAGING),
   prefix: z
@@ -46,6 +53,12 @@ export const updateUserSchema = z
     whitelistDomain: z.string().trim().max(255).optional(),
     whitelistIp: z.string().trim().max(255).optional(),
     ggrBalance: z.coerce.number({ error: 'ggrBalance must be a number' }).min(0).optional(),
+    ggrDeductionPercent: z.coerce
+      .number({ error: 'ggrDeductionPercent must be a number' })
+      .int('ggrDeductionPercent must be an integer')
+      .min(0)
+      .max(100)
+      .optional(),
     status: z.nativeEnum(UserStatus).optional(),
     serviceType: z.nativeEnum(ServiceType).optional(),
   })
@@ -61,7 +74,13 @@ export const listUsersQuerySchema = z.object({
   serviceType: z.nativeEnum(ServiceType).optional(),
 });
 
+export const listMyTransactionsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
+export type ListMyTransactionsQuery = z.infer<typeof listMyTransactionsQuerySchema>;

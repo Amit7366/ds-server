@@ -4,6 +4,7 @@ import { sendCreated, sendSuccess } from '../../utils/apiResponse';
 import { asyncHandler } from '../../utils/asyncHandler';
 import {
   CreateUserInput,
+  ListMyTransactionsQuery,
   ListUsersQuery,
   UpdateUserInput,
 } from './user.validation';
@@ -81,4 +82,12 @@ export const revealMySecret = asyncHandler(async (req: Request, res: Response) =
 export const getMyProfile = asyncHandler(async (req: Request, res: Response) => {
   const user = await userService.getProfile(req.user!.id);
   return sendSuccess(res, { user }, 'Profile retrieved');
+});
+
+export const listMyTransactions = asyncHandler(async (req: Request, res: Response) => {
+  const query =
+    (req as Request & { validatedQuery?: ListMyTransactionsQuery }).validatedQuery ??
+    (req.query as unknown as ListMyTransactionsQuery);
+  const result = await userService.listMyTransactions(req.user!.id, query);
+  return sendSuccess(res, result, 'Transactions retrieved');
 });

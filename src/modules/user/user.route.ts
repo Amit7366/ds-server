@@ -4,6 +4,7 @@ import { validate } from '../../middlewares/validate';
 import { UserRole } from '../../utils/constants';
 import {
   createUserSchema,
+  listMyTransactionsQuerySchema,
   listUsersQuerySchema,
   updateUserSchema,
 } from './user.validation';
@@ -24,6 +25,13 @@ router.post(
   '/me/reveal-secret',
   authorize(UserRole.USER, UserRole.SUPER_ADMIN),
   userController.revealMySecret,
+);
+
+router.get(
+  '/me/transactions',
+  authorize(UserRole.USER, UserRole.SUPER_ADMIN),
+  validate(listMyTransactionsQuerySchema, 'query'),
+  userController.listMyTransactions,
 );
 
 router.get(
