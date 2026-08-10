@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ServiceType, UserStatus } from '../../utils/constants';
+import { ServiceType, UserCurrency, UserStatus } from '../../utils/constants';
 
 export const loginSchema = z.object({
   email: z.string().email('Valid email is required'),
@@ -27,6 +27,7 @@ export const createUserSchema = z.object({
     .max(100)
     .optional()
     .default(8),
+  currency: z.nativeEnum(UserCurrency).optional().default(UserCurrency.BDT),
   status: z.nativeEnum(UserStatus).optional().default(UserStatus.ACTIVE),
   serviceType: z.nativeEnum(ServiceType).optional().default(ServiceType.STAGING),
   prefix: z
@@ -59,6 +60,7 @@ export const updateUserSchema = z
       .min(0)
       .max(100)
       .optional(),
+    currency: z.nativeEnum(UserCurrency).optional(),
     status: z.nativeEnum(UserStatus).optional(),
     serviceType: z.nativeEnum(ServiceType).optional(),
   })

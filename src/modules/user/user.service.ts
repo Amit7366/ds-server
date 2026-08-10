@@ -5,7 +5,7 @@ import {
   UpdateUserInput,
 } from './user.validation';
 import { User, IUserDocument } from './user.model';
-import { DEFAULT_GGR_DEDUCTION_PERCENT, UserRole } from '../../utils/constants';
+import { DEFAULT_GGR_DEDUCTION_PERCENT, DEFAULT_USER_CURRENCY, UserRole } from '../../utils/constants';
 import {
   decryptApiSecret,
   encryptApiSecret,
@@ -75,6 +75,7 @@ export class UserService {
       whitelistIp: input.whitelistIp ?? '',
       ggrBalance: input.ggrBalance ?? 0,
       ggrDeductionPercent: input.ggrDeductionPercent ?? DEFAULT_GGR_DEDUCTION_PERCENT,
+      currency: input.currency ?? DEFAULT_USER_CURRENCY,
       status: input.status,
       serviceType: input.serviceType,
       createdBy: createdById ?? null,
@@ -157,6 +158,7 @@ export class UserService {
     return {
       currentGgrBalance: user.ggrBalance ?? 0,
       ggrDeductionPercent: listed.ggrDeductionPercent,
+      currency: user.currency ?? DEFAULT_USER_CURRENCY,
       items: listed.items,
       pagination: listed.pagination,
     };
@@ -176,6 +178,7 @@ export class UserService {
     if (input.ggrDeductionPercent !== undefined) {
       user.ggrDeductionPercent = input.ggrDeductionPercent;
     }
+    if (input.currency !== undefined) user.currency = input.currency;
     if (input.status !== undefined) user.status = input.status;
     if (input.serviceType !== undefined) user.serviceType = input.serviceType;
     if (input.password) {

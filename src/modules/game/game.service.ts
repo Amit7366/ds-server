@@ -1,6 +1,6 @@
 import { env } from '../../config/env';
 import { User } from '../user/user.model';
-import { resolveGgrDeductionRate, UserStatus } from '../../utils/constants';
+import { resolveGgrDeductionRate, resolveUserCurrency, UserStatus } from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
 import { AppError, ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
 import {
@@ -63,7 +63,10 @@ export class GameService {
       });
     }
 
-    const upstreamBody = toTxGameLaunchBody(input);
+    const upstreamBody = toTxGameLaunchBody({
+      ...input,
+      currencyCode: resolveUserCurrency(user.currency),
+    });
     const upstream = await this.callLaunchUpstream(upstreamBody);
 
     if (upstream.code !== 0) {
@@ -94,9 +97,12 @@ export class GameService {
   }
 
   async getWithdraw(input: GetWithdrawInput) {
-    await this.authenticatePartner(input.prefix, input.apiSecret);
+    const user = await this.authenticatePartner(input.prefix, input.apiSecret);
 
-    const upstreamBody = toTxGetWithdrawBody(input);
+    const upstreamBody = toTxGetWithdrawBody({
+      ...input,
+      currencyCode: resolveUserCurrency(user.currency),
+    });
     const upstream = await this.callWithdrawUpstream(upstreamBody);
 
     if (upstream.status !== true) {

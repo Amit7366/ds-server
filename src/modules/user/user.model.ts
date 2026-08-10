@@ -1,7 +1,9 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 import {
   DEFAULT_GGR_DEDUCTION_PERCENT,
+  DEFAULT_USER_CURRENCY,
   ServiceType,
+  UserCurrency,
   UserRole,
   UserStatus,
 } from '../../utils/constants';
@@ -19,6 +21,7 @@ export interface IUser {
   whitelistIp: string;
   ggrBalance: number;
   ggrDeductionPercent: number;
+  currency: UserCurrency;
   status: UserStatus;
   serviceType: ServiceType;
   createdBy?: Types.ObjectId | null;
@@ -109,6 +112,11 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
       min: 0,
       max: 100,
     },
+    currency: {
+      type: String,
+      enum: Object.values(UserCurrency),
+      default: DEFAULT_USER_CURRENCY,
+    },
     status: {
       type: String,
       enum: Object.values(UserStatus),
@@ -158,6 +166,7 @@ userSchema.methods.toSafeObject = function toSafeObject(
     whitelistIp: this.whitelistIp,
     ggrBalance: this.ggrBalance ?? 0,
     ggrDeductionPercent: this.ggrDeductionPercent ?? DEFAULT_GGR_DEDUCTION_PERCENT,
+    currency: this.currency ?? DEFAULT_USER_CURRENCY,
     status: this.status,
     serviceType: this.serviceType,
     createdBy: this.createdBy ? this.createdBy.toString() : null,
