@@ -1,8 +1,8 @@
 import { User } from '../user/user.model';
-import { LoginInput } from '../user/user.validation';
+import { ChangePasswordInput, LoginInput } from '../user/user.validation';
 import { UserStatus } from '../../utils/constants';
 import { comparePassword, hashPassword } from '../../utils/crypto';
-import { ForbiddenError, UnauthorizedError } from '../../utils/errors';
+import { ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
 import {
   signAccessToken,
   signRefreshToken,
@@ -101,6 +101,26 @@ export class AuthService {
 
   async logout(userId: string) {
     await User.findByIdAndUpdate(userId, { refreshTokenHash: null });
+  }
+
+  async changePassword(userId: string, input: ChangePasswordInput) {
+    const user = await User.findById(userId).select('+password');
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+
+    const valid = await comparePassword(input.currentPassword, user.password);
+    if (!valid) {
+      throw new ValidationError('Current password is incorrect');
+    }
+
+    if (input.currentPassword === input.newPassword) {
+      throw new ValidationError('New password must be different from current password');
+    }
+
+    user.password = await hashPassword(input.newPassword);
+    user.refreshTokenHash = null;
+    await user.save();
   }
 
   async me(userId: string) {

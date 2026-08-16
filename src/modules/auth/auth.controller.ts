@@ -3,7 +3,7 @@ import { authService } from './auth.service';
 import { clearAuthCookies, setAuthCookies } from './auth.cookies';
 import { sendSuccess } from '../../utils/apiResponse';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { LoginInput } from '../user/user.validation';
+import { ChangePasswordInput, LoginInput } from '../user/user.validation';
 import { UnauthorizedError } from '../../utils/errors';
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
@@ -53,4 +53,10 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 export const me = asyncHandler(async (req: Request, res: Response) => {
   const user = await authService.me(req.user!.id);
   return sendSuccess(res, { user }, 'Current user');
+});
+
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  await authService.changePassword(req.user!.id, req.body as ChangePasswordInput);
+  clearAuthCookies(res);
+  return sendSuccess(res, null, 'Password updated. Please sign in again.');
 });

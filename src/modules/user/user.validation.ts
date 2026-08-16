@@ -6,17 +6,29 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(128)
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/[0-9]/, 'Password must contain a number');
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: passwordSchema,
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    message: 'New password must be different from current password',
+    path: ['newPassword'],
+  });
+
 export const createUserSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().email().max(255),
   phone: z.string().trim().min(5).max(30),
-  password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .max(128)
-    .regex(/[A-Z]/, 'Password must contain an uppercase letter')
-    .regex(/[a-z]/, 'Password must contain a lowercase letter')
-    .regex(/[0-9]/, 'Password must contain a number'),
+  password: passwordSchema,
   whitelistDomain: z.string().trim().max(255).optional().default(''),
   whitelistIp: z.string().trim().max(255).optional().default(''),
   ggrBalance: z.coerce.number({ error: 'ggrBalance must be a number' }).min(0).optional().default(0),
@@ -43,14 +55,7 @@ export const updateUserSchema = z
   .object({
     name: z.string().trim().min(2).max(120).optional(),
     phone: z.string().trim().min(5).max(30).optional(),
-    password: z
-      .string()
-      .min(8)
-      .max(128)
-      .regex(/[A-Z]/)
-      .regex(/[a-z]/)
-      .regex(/[0-9]/)
-      .optional(),
+    password: passwordSchema.optional(),
     whitelistDomain: z.string().trim().max(255).optional(),
     whitelistIp: z.string().trim().max(255).optional(),
     ggrBalance: z.coerce.number({ error: 'ggrBalance must be a number' }).min(0).optional(),
@@ -82,6 +87,7 @@ export const listMyTransactionsQuerySchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
