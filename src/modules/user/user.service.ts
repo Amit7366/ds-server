@@ -4,6 +4,7 @@ import {
   ListUsersQuery,
   UpdateUserInput,
 } from './user.validation';
+import mongoose from 'mongoose';
 import { User, IUserDocument } from './user.model';
 import { DEFAULT_GGR_DEDUCTION_PERCENT, DEFAULT_USER_CURRENCY, UserRole } from '../../utils/constants';
 import {
@@ -132,6 +133,27 @@ export class UserService {
       throw new NotFoundError('User not found');
     }
     return withCredentialMeta(user, Boolean(user.apiSecretEncrypted));
+  }
+
+  async getUserDetails(id: string) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      throw new NotFoundError('User not found');
+    }
+
+    const user = await User.findById(id).select('+apiSecretEncrypted');
+    if (!user || user.role !== UserRole.USER) {
+      throw new NotFoundError('User not found');
+    }
+
+    const stats = await transactionService.summarizeForPrefix({
+      prefix: user.prefix,
+      ggrDeductionPercent: user.ggrDeductionPercent,
+    });
+
+    return {
+      user: withCredentialMeta(user, Boolean(user.apiSecretEncrypted)),
+      stats,
+    };
   }
 
   async getProfile(id: string) {

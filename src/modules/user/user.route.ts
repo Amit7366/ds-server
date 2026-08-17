@@ -48,6 +48,12 @@ router.post(
   userController.createUser,
 );
 
+router.get(
+  '/:id/details',
+  authorize(UserRole.SUPER_ADMIN),
+  userController.getUserDetails,
+);
+
 router.get('/:id', authorize(UserRole.SUPER_ADMIN), userController.getUser);
 
 router.patch(

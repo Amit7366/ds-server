@@ -33,6 +33,11 @@ export const getUser = asyncHandler(async (req: Request, res: Response) => {
   return sendSuccess(res, { user }, 'User retrieved');
 });
 
+export const getUserDetails = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userService.getUserDetails(req.params.id as string);
+  return sendSuccess(res, result, 'User details retrieved');
+});
+
 export const updateUser = asyncHandler(async (req: Request, res: Response) => {
   const user = await userService.updateUser(
     req.params.id as string,

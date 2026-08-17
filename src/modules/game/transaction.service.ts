@@ -295,5 +295,79 @@ export class TransactionService {
       },
     };
   }
+
+  /**
+   * Lifetime betting totals for a partner prefix.
+   * Win/loss and GGR deduction follow the same rules as dashboard transactions:
+   * win_amount > 0 is a win (no GGR); otherwise the bet is a loss and GGR is bet * current rate.
+   */
+  async summarizeForPrefix(input: {
+    prefix: string;
+    ggrDeductionPercent?: number | null;
+  }) {
+    const prefix = input.prefix.trim().toUpperCase();
+    const rate = resolveGgrDeductionRate(input.ggrDeductionPercent);
+
+    const [row] = await GameTransaction.aggregate<{
+      totalBetAmount: number;
+      totalWin: number;
+      totalLoss: number;
+      totalGgrDeduction: number;
+      transactionCount: number;
+      winCount: number;
+      lossCount: number;
+    }>([
+      { $match: { prefix } },
+      {
+        $project: {
+          bet: {
+            $convert: { input: '$bet_amount', to: 'double', onError: 0, onNull: 0 },
+          },
+          win: {
+            $convert: { input: '$win_amount', to: 'double', onError: 0, onNull: 0 },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalBetAmount: { $sum: '$bet' },
+          totalWin: {
+            $sum: { $cond: [{ $gt: ['$win', 0] }, '$win', 0] },
+          },
+          totalLoss: {
+            $sum: { $cond: [{ $lte: ['$win', 0] }, '$bet', 0] },
+          },
+          totalGgrDeduction: {
+            $sum: {
+              $cond: [
+                { $and: [{ $lte: ['$win', 0] }, { $gt: ['$bet', 0] }] },
+                { $multiply: ['$bet', rate] },
+                0,
+              ],
+            },
+          },
+          transactionCount: { $sum: 1 },
+          winCount: {
+            $sum: { $cond: [{ $gt: ['$win', 0] }, 1, 0] },
+          },
+          lossCount: {
+            $sum: { $cond: [{ $lte: ['$win', 0] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    return {
+      totalBetAmount: roundMoney(row?.totalBetAmount ?? 0),
+      totalWin: roundMoney(row?.totalWin ?? 0),
+      totalLoss: roundMoney(row?.totalLoss ?? 0),
+      totalGgrDeduction: roundMoney(row?.totalGgrDeduction ?? 0),
+      transactionCount: row?.transactionCount ?? 0,
+      winCount: row?.winCount ?? 0,
+      lossCount: row?.lossCount ?? 0,
+    };
+  }
 }
+
 export const transactionService = new TransactionService();
