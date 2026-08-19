@@ -9,6 +9,7 @@ import { verifyApiSecret } from '../../utils/crypto';
 import { ForbiddenError, UnauthorizedError } from '../../utils/errors';
 import { buildMemberAccount, toPublicPlayerId } from './game.validation';
 import { GameTransaction } from './transaction.model';
+import { buildTimestampMongoFilter } from './timestamp-filter';
 import {
   extractPrefixFromMemberAccount,
   FetchTransactionsInput,
@@ -35,6 +36,123 @@ function parseAmount(value: string | undefined | null): number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 10000) / 10000;
+}
+
+type BettingStats = {
+  totalBetAmount: number;
+  totalWin: number;
+  totalLoss: number;
+  totalGgrDeduction: number;
+  transactionCount: number;
+  winCount: number;
+  lossCount: number;
+};
+
+type DashboardListInput = {
+  prefix: string;
+  ggrDeductionPercent?: number | null;
+  page: number;
+  limit: number;
+  fromDate?: string;
+  toDate?: string;
+  playerId?: string;
+};
+
+function emptyBettingStats(): BettingStats {
+  return {
+    totalBetAmount: 0,
+    totalWin: 0,
+    totalLoss: 0,
+    totalGgrDeduction: 0,
+    transactionCount: 0,
+    winCount: 0,
+    lossCount: 0,
+  };
+}
+
+function buildDashboardMatch(input: {
+  prefix: string;
+  fromDate?: string;
+  toDate?: string;
+  playerId?: string;
+}): Record<string, unknown> {
+  const prefix = input.prefix.trim().toUpperCase();
+  const filter: Record<string, unknown> = { prefix };
+  if (input.playerId?.trim()) {
+    filter.member_account = buildMemberAccount(input.playerId, prefix);
+  }
+  const timestampFilter = buildTimestampMongoFilter(input.fromDate, input.toDate);
+  if (timestampFilter) {
+    Object.assign(filter, timestampFilter);
+  }
+  return filter;
+}
+
+async function aggregateBettingStats(
+  match: Record<string, unknown>,
+  rate: number,
+): Promise<BettingStats> {
+  const [row] = await GameTransaction.aggregate<{
+    totalBetAmount: number;
+    totalWin: number;
+    totalLoss: number;
+    totalGgrDeduction: number;
+    transactionCount: number;
+    winCount: number;
+    lossCount: number;
+  }>([
+    { $match: match },
+    {
+      $project: {
+        bet: {
+          $convert: { input: '$bet_amount', to: 'double', onError: 0, onNull: 0 },
+        },
+        win: {
+          $convert: { input: '$win_amount', to: 'double', onError: 0, onNull: 0 },
+        },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalBetAmount: { $sum: '$bet' },
+        totalWin: {
+          $sum: { $cond: [{ $gt: ['$win', 0] }, '$win', 0] },
+        },
+        totalLoss: {
+          $sum: { $cond: [{ $lte: ['$win', 0] }, '$bet', 0] },
+        },
+        totalGgrDeduction: {
+          $sum: {
+            $cond: [
+              { $and: [{ $lte: ['$win', 0] }, { $gt: ['$bet', 0] }] },
+              { $multiply: ['$bet', rate] },
+              0,
+            ],
+          },
+        },
+        transactionCount: { $sum: 1 },
+        winCount: {
+          $sum: { $cond: [{ $gt: ['$win', 0] }, 1, 0] },
+        },
+        lossCount: {
+          $sum: { $cond: [{ $lte: ['$win', 0] }, 1, 0] },
+        },
+      },
+    },
+  ]);
+
+  if (!row) return emptyBettingStats();
+
+  return {
+    totalBetAmount: roundMoney(row.totalBetAmount ?? 0),
+    totalWin: roundMoney(row.totalWin ?? 0),
+    totalLoss: roundMoney(row.totalLoss ?? 0),
+    totalGgrDeduction: roundMoney(row.totalGgrDeduction ?? 0),
+    transactionCount: row.transactionCount ?? 0,
+    winCount: row.winCount ?? 0,
+    lossCount: row.lossCount ?? 0,
+  };
 }
 
 export class TransactionService {
@@ -199,11 +317,9 @@ export class TransactionService {
     if (input.game_uid) {
       filter.game_uid = input.game_uid;
     }
-    if (input.fromDate || input.toDate) {
-      const timestampFilter: Record<string, string> = {};
-      if (input.fromDate) timestampFilter.$gte = input.fromDate;
-      if (input.toDate) timestampFilter.$lte = input.toDate;
-      filter.timestamp = timestampFilter;
+    const timestampFilter = buildTimestampMongoFilter(input.fromDate, input.toDate);
+    if (timestampFilter) {
+      Object.assign(filter, timestampFilter);
     }
 
     const page = input.page;
@@ -240,12 +356,7 @@ export class TransactionService {
   /**
    * Dashboard list for a logged-in partner: filter by prefix, compute live GGR deduction.
    */
-  async listForDashboard(input: {
-    prefix: string;
-    ggrDeductionPercent?: number | null;
-    page: number;
-    limit: number;
-  }) {
+  async listForDashboard(input: DashboardListInput) {
     const prefix = input.prefix.trim().toUpperCase();
     const rate = resolveGgrDeductionRate(input.ggrDeductionPercent);
     const percent =
@@ -256,11 +367,16 @@ export class TransactionService {
     const page = input.page;
     const limit = input.limit;
     const skip = (page - 1) * limit;
-    const filter = { prefix };
+    const filter = buildDashboardMatch({
+      prefix,
+      fromDate: input.fromDate,
+      toDate: input.toDate,
+      playerId: input.playerId,
+    });
 
-    const [docs, total] = await Promise.all([
+    const [docs, stats] = await Promise.all([
       GameTransaction.find(filter).sort({ timestamp: -1 }).skip(skip).limit(limit).lean(),
-      GameTransaction.countDocuments(filter),
+      aggregateBettingStats(filter, rate),
     ]);
 
     const items = docs.map((doc) => {
@@ -287,11 +403,12 @@ export class TransactionService {
     return {
       ggrDeductionPercent: percent,
       items,
+      stats,
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / limit)),
+        total: stats.transactionCount,
+        totalPages: Math.max(1, Math.ceil(stats.transactionCount / limit)),
       },
     };
   }
@@ -307,66 +424,7 @@ export class TransactionService {
   }) {
     const prefix = input.prefix.trim().toUpperCase();
     const rate = resolveGgrDeductionRate(input.ggrDeductionPercent);
-
-    const [row] = await GameTransaction.aggregate<{
-      totalBetAmount: number;
-      totalWin: number;
-      totalLoss: number;
-      totalGgrDeduction: number;
-      transactionCount: number;
-      winCount: number;
-      lossCount: number;
-    }>([
-      { $match: { prefix } },
-      {
-        $project: {
-          bet: {
-            $convert: { input: '$bet_amount', to: 'double', onError: 0, onNull: 0 },
-          },
-          win: {
-            $convert: { input: '$win_amount', to: 'double', onError: 0, onNull: 0 },
-          },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalBetAmount: { $sum: '$bet' },
-          totalWin: {
-            $sum: { $cond: [{ $gt: ['$win', 0] }, '$win', 0] },
-          },
-          totalLoss: {
-            $sum: { $cond: [{ $lte: ['$win', 0] }, '$bet', 0] },
-          },
-          totalGgrDeduction: {
-            $sum: {
-              $cond: [
-                { $and: [{ $lte: ['$win', 0] }, { $gt: ['$bet', 0] }] },
-                { $multiply: ['$bet', rate] },
-                0,
-              ],
-            },
-          },
-          transactionCount: { $sum: 1 },
-          winCount: {
-            $sum: { $cond: [{ $gt: ['$win', 0] }, 1, 0] },
-          },
-          lossCount: {
-            $sum: { $cond: [{ $lte: ['$win', 0] }, 1, 0] },
-          },
-        },
-      },
-    ]);
-
-    return {
-      totalBetAmount: roundMoney(row?.totalBetAmount ?? 0),
-      totalWin: roundMoney(row?.totalWin ?? 0),
-      totalLoss: roundMoney(row?.totalLoss ?? 0),
-      totalGgrDeduction: roundMoney(row?.totalGgrDeduction ?? 0),
-      transactionCount: row?.transactionCount ?? 0,
-      winCount: row?.winCount ?? 0,
-      lossCount: row?.lossCount ?? 0,
-    };
+    return aggregateBettingStats(buildDashboardMatch({ prefix }), rate);
   }
 }
 

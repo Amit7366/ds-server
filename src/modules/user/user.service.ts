@@ -175,6 +175,9 @@ export class UserService {
       ggrDeductionPercent: user.ggrDeductionPercent,
       page: query.page,
       limit: query.limit,
+      fromDate: query.fromDate,
+      toDate: query.toDate,
+      playerId: query.playerId,
     });
 
     return {
@@ -183,6 +186,7 @@ export class UserService {
       currency: user.currency ?? DEFAULT_USER_CURRENCY,
       items: listed.items,
       pagination: listed.pagination,
+      stats: listed.stats,
     };
   }
 

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { ServiceType, UserCurrency, UserStatus } from '../../utils/constants';
+import {
+  isValidTimestampBound,
+  normalizeTimestampBound,
+} from '../game/timestamp-filter';
 
 export const loginSchema = z.object({
   email: z.string().email('Valid email is required'),
@@ -81,10 +85,51 @@ export const listUsersQuerySchema = z.object({
   serviceType: z.nativeEnum(ServiceType).optional(),
 });
 
-export const listMyTransactionsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-});
+const optionalQueryString = (max: number) =>
+  z.preprocess(
+    (value) => {
+      if (value === undefined || value === null) return undefined;
+      const trimmed = String(value).trim();
+      return trimmed === '' ? undefined : trimmed;
+    },
+    z.string().min(1).max(max).optional(),
+  );
+
+const optionalTimestampQuery = z.preprocess(
+  (value) => {
+    if (value === undefined || value === null) return undefined;
+    const trimmed = String(value).trim();
+    return trimmed === '' ? undefined : trimmed;
+  },
+  z
+    .string()
+    .min(1)
+    .refine((value) => isValidTimestampBound(value), {
+      message: 'Must be a valid date or datetime (e.g. 2026-08-19 or 2026-08-19 14:30:00)',
+    })
+    .optional(),
+);
+
+export const listMyTransactionsQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    fromDate: optionalTimestampQuery,
+    toDate: optionalTimestampQuery,
+    playerId: optionalQueryString(80),
+  })
+  .refine(
+    (data) => {
+      if (!data.fromDate || !data.toDate) return true;
+      const from = normalizeTimestampBound(data.fromDate, 'from');
+      const to = normalizeTimestampBound(data.toDate, 'to');
+      return from <= to;
+    },
+    {
+      message: 'fromDate must be before or equal to toDate',
+      path: ['fromDate'],
+    },
+  );
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
