@@ -1,43 +1,30 @@
 import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
 import { authenticate } from '../../middlewares/authenticate';
+import { createRateLimiter } from '../../middlewares/rateLimit';
 import { validate } from '../../middlewares/validate';
 import { changePasswordSchema, loginSchema } from '../user/user.validation';
 import * as authController from './auth.controller';
 
 const router = Router();
 
-const loginLimiter = rateLimit({
+const loginLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many login attempts. Please try again later.',
-  },
+  skipSuccessfulRequests: true,
+  message: 'Too many login attempts. Please try again later.',
 });
 
-const refreshLimiter = rateLimit({
+const refreshLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many refresh attempts. Please sign in again.',
-  },
+  max: 60,
+  message: 'Too many refresh attempts. Please sign in again.',
 });
 
-const changePasswordLimiter = rateLimit({
+const changePasswordLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: 'Too many password change attempts. Please try again later.',
-  },
+  skipSuccessfulRequests: true,
+  message: 'Too many password change attempts. Please try again later.',
 });
 
 router.post('/login', loginLimiter, validate(loginSchema), authController.login);

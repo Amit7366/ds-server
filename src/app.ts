@@ -2,9 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
+import { createRateLimiter } from './middlewares/rateLimit';
 import authRoutes from './modules/auth/auth.route';
 import userRoutes from './modules/user/user.route';
 import gameRoutes from './modules/game/game.route';
@@ -12,7 +12,8 @@ import gameRoutes from './modules/game/game.route';
 export function createApp() {
   const app = express();
 
-  app.set('trust proxy', 1);
+  // Trust Docker / Nginx private hops so req.ip is not the proxy container.
+  app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
 
   app.use(
     helmet({
@@ -42,15 +43,12 @@ export function createApp() {
     next();
   });
 
-  const apiLimiter = rateLimit({
+  const apiLimiter = createRateLimiter({
     windowMs: 15 * 60 * 1000,
-    max: 500,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: {
-      success: false,
-      message: 'Too many requests. Please try again later.',
-    },
+    max: 2000,
+    message: 'Too many requests. Please try again later.',
+    // Game partners have their own per-route limiters and much higher volume.
+    skip: (req) => req.originalUrl.startsWith('/api/game/'),
   });
   app.use('/api/', apiLimiter);
 
