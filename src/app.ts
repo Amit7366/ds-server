@@ -8,6 +8,7 @@ import { createRateLimiter } from './middlewares/rateLimit';
 import authRoutes from './modules/auth/auth.route';
 import userRoutes from './modules/user/user.route';
 import gameRoutes from './modules/game/game.route';
+import gameCatalogueRoutes from './modules/game/gameCatalogue.route';
 
 export function createApp() {
   const app = express();
@@ -58,6 +59,7 @@ export function createApp() {
 
   app.use('/api/v1/auth', authRoutes);
   app.use('/api/v1/users', userRoutes);
+  app.use('/api/v1/games', gameCatalogueRoutes);
   app.use('/api/game/v1', gameRoutes);
 
   app.use(notFoundHandler);

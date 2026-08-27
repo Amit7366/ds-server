@@ -9,6 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx src/seed/run.ts",
+    "seed:games": "tsx src/seed/run-games.ts",
     "lint": "tsc --noEmit"
   },
   "engines": {

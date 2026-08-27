@@ -11,3 +11,6 @@ docker-compose.yml
 .dockerignore
 npm-debug.log*
 coverage
+src/data
+src/seed/run-games.ts
+src/seed/seeders/gameCatalogue.seeder.ts
