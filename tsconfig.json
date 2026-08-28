@@ -17,12 +17,14 @@
     "typeRoots": ["./node_modules/@types", "./src/types"]
   },
   "include": ["src/**/*"],
+  // Local-only seed dumps and their runners. Seed with tsx, not the Docker tsc build.
   "exclude": [
     "node_modules",
     "dist",
     "src/data/**",
     "src/seed/run-games.ts",
     "src/seed/run-quotations.ts",
-    "src/seed/seeders/gameCatalogue.seeder.ts"
+    "src/seed/seeders/gameCatalogue.seeder.ts",
+    "src/seed/seeders/apiQuotation.seeder.ts"
   ]
 }

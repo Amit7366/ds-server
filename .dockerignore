@@ -11,6 +11,11 @@ docker-compose.yml
 .dockerignore
 npm-debug.log*
 coverage
+
+# Local-only seed dumps. Never ship or compile these in Docker/Render.
+# Seed on a machine with source: npm run seed:games / seed:quotations
 src/data
 src/seed/run-games.ts
+src/seed/run-quotations.ts
 src/seed/seeders/gameCatalogue.seeder.ts
+src/seed/seeders/apiQuotation.seeder.ts
