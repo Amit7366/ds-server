@@ -1,0 +1,291 @@
+import { ICurrencyOverride, IRateTier, QuotationRateMode } from '../modules/apiQuotation/apiQuotation.model';
+
+export type ApiQuotationSeedRow = {
+  supplier: string;
+  type: string;
+  currency?: string;
+  rateMode?: QuotationRateMode;
+  asia: IRateTier;
+  row: IRateTier | null;
+  specialInstructions?: string;
+  currencyOverrides?: ICurrencyOverride[];
+};
+
+const t = (under10k: number, from10kTo1M: number, over1M: number): IRateTier => ({
+  under10k,
+  from10kTo1M,
+  over1M,
+});
+
+const ov = (
+  currencies: string[],
+  rates: IRateTier,
+  label = '',
+): ICurrencyOverride => ({
+  currencies,
+  label,
+  ...rates,
+});
+
+const ME = [
+  'AED',
+  'AFN',
+  'BHD',
+  'IQD',
+  'IRR',
+  'JOD',
+  'KWD',
+  'LBP',
+  'OMR',
+  'XPF',
+  'QAR',
+  'SAR',
+  'SYP',
+  'YER',
+];
+
+const ME_ROW = t(13, 12, 11.5);
+
+/** Huidu (HD) Gaming-API price sheet — one row per PDF record. Currency: USD. */
+export const apiQuotationSeedRows: ApiQuotationSeedRow[] = [
+  { supplier: 'BF', type: 'Lottery', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'bgaming', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  {
+    supplier: 'NoLimit City',
+    type: 'SLOTS',
+    asia: t(7, 6, 5.5),
+    row: t(13, 12, 11.5),
+    currencyOverrides: [ov(ME, ME_ROW)],
+  },
+  {
+    supplier: 'Big Time Gaming',
+    type: 'SLOTS',
+    asia: t(7, 6, 5.5),
+    row: t(13, 12, 11.5),
+    currencyOverrides: [ov(ME, ME_ROW)],
+  },
+  { supplier: 'Mancala', type: 'SLOTS', asia: t(10, 9, 8.5), row: t(14, 13, 12.5) },
+  {
+    supplier: 'NETENT',
+    type: 'SLOTS',
+    asia: t(7, 6, 5.5),
+    row: t(13, 12, 11.5),
+    currencyOverrides: [ov(ME, ME_ROW)],
+  },
+  { supplier: 'Relax Gaming', type: 'SLOTS', asia: t(9, 8, 7.5), row: t(12, 11, 10.5) },
+  { supplier: 'Skywind', type: 'SLOTS', asia: t(10, 9, 8.5), row: t(12, 11, 10.5) },
+  {
+    supplier: 'Playtech',
+    type: 'SLOTS',
+    asia: t(8, 7, 6.5),
+    row: t(15, 14, 13.5),
+    currencyOverrides: [ov(['MYR'], t(10.5, 9.5, 9)), ov(['MXN'], t(16, 15, 14.5))],
+  },
+  { supplier: "Play'n Go", type: 'SLOTS', asia: t(10, 9, 8.5), row: t(15, 14, 13.5) },
+  {
+    supplier: 'Red Tiger',
+    type: 'SLOTS',
+    asia: t(7, 6, 5.5),
+    row: t(13, 12, 11.5),
+    currencyOverrides: [ov(ME, ME_ROW)],
+  },
+  { supplier: 'Playson', type: 'SLOTS', asia: t(9, 8, 7.5), row: t(11, 10, 9.5) },
+  { supplier: 'GameArt', type: 'SLOTS', asia: t(11, 10, 9.5), row: t(14, 13, 12.5) },
+  {
+    supplier: 'Pragmatic Play',
+    type: 'SLOTS',
+    asia: t(9, 8, 7.5),
+    row: t(11, 10, 9.5),
+    currencyOverrides: [
+      ov(['IDR', 'KRW'], t(9.5, 8.5, 8)),
+      ov(['PHP'], t(10, 9, 8.5)),
+    ],
+  },
+  {
+    supplier: 'Spribe',
+    type: 'SLOTS',
+    asia: t(7, 6, 5.5),
+    row: t(11, 10, 9.5),
+    currencyOverrides: [
+      ov(['INR'], t(9.5, 8.5, 8)),
+      ov(['BTN', 'NPR', 'PKR', 'LKR', 'BDT'], t(9, 8, 7.5)),
+    ],
+  },
+  { supplier: 'JILI', type: 'SLOTS', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  {
+    supplier: 'JDB',
+    type: 'SLOTS',
+    asia: t(9, 8, 7.5),
+    row: t(9, 8, 7.5),
+    currencyOverrides: [ov(['THB'], t(16, 15, 14.5))],
+  },
+  { supplier: 'TaDa', type: 'SLOTS', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'EazyGaming (EG46)', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'FA CHAI Gaming', type: 'SLOTS', asia: t(8.5, 7.5, 7), row: t(8.5, 7.5, 7) },
+  { supplier: 'T1gaming', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  {
+    supplier: 'PGSoft',
+    type: 'SLOTS',
+    asia: t(7, 6.5, 6),
+    row: t(7, 6.5, 6),
+    currencyOverrides: [ov(['THB'], t(11.5, 10.5, 10))],
+  },
+  { supplier: 'iDealGaming', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(12, 11, 10.5) },
+  { supplier: 'KingMidas', type: 'SLOTS', asia: t(8.5, 7.5, 7), row: t(9.5, 8.5, 8) },
+  {
+    supplier: 'PGSGaming',
+    type: 'SLOTS',
+    asia: t(8, 7, 6.5),
+    row: t(8, 7, 6.5),
+    currencyOverrides: [ov(['MYR'], t(12, 11, 10.5))],
+  },
+  { supplier: 'Rich88', type: 'SLOTS', asia: t(7.5, 6.5, 6), row: t(7.5, 6.5, 6) },
+  { supplier: 'Nextspin', type: 'SLOTS', asia: t(7.5, 6.5, 6), row: t(7.5, 6.5, 6) },
+  { supplier: 'CQ9', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  { supplier: 'EVO Play', type: 'SLOTS', asia: t(8.5, 7.5, 7), row: t(11, 10, 9.5) },
+  { supplier: 'PlayAce (AgGaming)', type: 'SLOTS', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'Habanero', type: 'SLOTS', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'YGRGaming', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  { supplier: 'koolbet', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  { supplier: 'BNG', type: 'SLOTS', asia: t(10, 9, 8.5), row: t(10, 9, 8.5) },
+  {
+    supplier: 'Hacksaw',
+    type: 'SLOTS',
+    asia: t(7.5, 6.5, 6),
+    row: t(11, 10, 9.5),
+    currencyOverrides: [
+      ov(['BDT', 'INR', 'LKR', 'MMK', 'MNT', 'NPR', 'PKR'], t(11, 10, 9.5)),
+      ov([], t(9.5, 8.5, 8), 'LatAm region'),
+    ],
+  },
+  { supplier: 'Turbogames', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  { supplier: 'onegaming', type: 'SLOTS', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  { supplier: '5G', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: '2J', type: 'SLOTS', asia: t(6.5, 5.5, 5), row: t(6.5, 5.5, 5) },
+  {
+    supplier: 'EpicWin',
+    type: 'SLOTS',
+    asia: t(8, 7, 6.5),
+    row: t(8, 7, 6.5),
+    currencyOverrides: [ov(['MYR'], t(10, 9, 8.5))],
+  },
+  {
+    supplier: 'smartsoft',
+    type: 'SLOTS',
+    asia: t(7, 6, 5.5),
+    row: t(10, 9, 8.5),
+    currencyOverrides: [ov(['INR', 'PKR'], t(9, 8, 7.5), 'Rupee regions (India, Pakistan)')],
+  },
+  { supplier: 'Wonwon', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'BtGaming', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'Pixmove', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(8, 7, 6.5) },
+  { supplier: 'Galaxsys', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'expanse', type: 'SLOTS', asia: t(6, 5, 4.5), row: t(6, 5, 4.5) },
+  { supplier: 'kygaming', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'fastspin', type: 'SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'InOut', type: 'Mini Game', asia: t(8, 7.5, 6), row: t(9.5, 8.5, 8) },
+  { supplier: 'minigame', type: 'Mini Game', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'AOG', type: 'Cockfighting class', asia: t(12, 11, 10.5), row: null },
+  { supplier: '2J', type: 'Card Game', asia: t(9.5, 8.5, 8), row: t(9.5, 8.5, 8) },
+  { supplier: 'V8', type: 'Card Game', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'CQ9', type: 'Marbles', asia: t(10, 9, 8.5), row: t(10, 9, 8.5) },
+  { supplier: 'DpEsports', type: 'Esports', asia: t(10.5, 9.5, 9), row: t(10.5, 9.5, 9) },
+  { supplier: 'DpSports', type: 'Sports', asia: t(10.5, 9.5, 9), row: t(10.5, 9.5, 9) },
+  { supplier: 'IBC体育', type: 'Sports', asia: t(10, 9, 8.5), row: t(10, 9, 8.5) },
+  { supplier: 'Unitedgaming (UG)', type: 'Sports', asia: t(10, 9, 8.5), row: t(10, 9, 8.5) },
+  { supplier: 'LuckySports', type: 'Sports', asia: t(12, 11, 10.5), row: t(12, 11, 10.5) },
+  { supplier: 'BTI', type: 'Sports', asia: t(10, 9, 8.5), row: t(10, 9, 8.5) },
+  {
+    supplier: 'SBO',
+    type: 'Sports',
+    asia: t(11, 10, 9.5),
+    row: null,
+    currencyOverrides: [
+      ov(['PHP'], t(8.5, 7.5, 7)),
+      ov(['MYR', 'INR'], t(10, 9, 8.5)),
+      ov(['VND', 'MMK'], t(11.5, 10.5, 10)),
+      ov(['THB', 'IDR', 'KRW', 'USD'], t(12.5, 11.5, 11)),
+    ],
+  },
+  {
+    supplier: 'Microgaming (MG)',
+    type: 'LIVE CASINO/SLOTS',
+    asia: t(8, 7, 6.5),
+    row: t(8, 7, 6.5),
+    currencyOverrides: [ov(['USD', 'JPY'], t(10, 9, 8.5))],
+  },
+  { supplier: 'ON Gaming', type: 'LIVE CASINO/SLOTS', asia: t(7, 6, 5.5), row: t(7, 6, 5.5) },
+  { supplier: 'CQ9', type: 'LIVE CASINO', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  {
+    supplier: 'PlayAce (AgGaming)',
+    type: 'LIVE CASINO',
+    asia: t(10, 9, 8.5),
+    row: t(10, 9, 8.5),
+    currencyOverrides: [ov(['IDR'], t(12, 11, 10.5))],
+  },
+  { supplier: 'TFgaming', type: 'LIVE CASINO', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'DreamGaming', type: 'LIVE CASINO', asia: t(7.5, 6.5, 6), row: t(7.5, 6.5, 6) },
+  {
+    supplier: 'Evolution Live',
+    type: 'LIVE CASINO',
+    asia: t(11, 10, 9.5),
+    row: t(13, 12, 11.5),
+    currencyOverrides: [ov(ME, ME_ROW)],
+  },
+  {
+    supplier: 'Evolution Live (Premium)',
+    type: 'LIVE CASINO',
+    rateMode: 'surcharge',
+    asia: t(1, 3, 5),
+    row: t(1, 3, 5),
+    specialInstructions: 'Regular Price + 1%/3%/5% GGR',
+  },
+  {
+    supplier: 'Playtech (Live)',
+    type: 'LIVE CASINO',
+    asia: t(8, 7, 6.5),
+    row: t(15, 14, 13.5),
+    currencyOverrides: [ov(['MYR'], t(10.5, 9.5, 9)), ov(['MXN'], t(16, 15, 14.5))],
+  },
+  {
+    supplier: 'Pragmatic Play (Live)',
+    type: 'LIVE CASINO',
+    asia: t(9, 8, 7.5),
+    row: t(12, 11, 10.5),
+    currencyOverrides: [
+      ov(['IDR'], t(10.5, 9.5, 9)),
+      ov(['KRW'], t(10, 10.5, 11.5)),
+      ov(['PHP'], t(10.5, 9.5, 9)),
+      ov([], t(12, 11, 10.5), 'Blackjack'),
+    ],
+  },
+  {
+    supplier: 'Pragmatic Play (Live) (Premium)',
+    type: 'LIVE CASINO',
+    asia: t(12, 11, 10.5),
+    row: t(15, 14, 13.5),
+    currencyOverrides: [
+      ov(['IDR'], t(13.5, 12.5, 12)),
+      ov(['KRW'], t(13, 13.5, 14.5)),
+      ov(['PHP'], t(13.5, 12.5, 12)),
+    ],
+  },
+  { supplier: 'AstarGaming', type: 'LIVE CASINO', asia: t(6, 5, 4.5), row: t(6, 5, 4.5) },
+  {
+    supplier: 'YEEBET LIVE',
+    type: 'LIVE CASINO',
+    asia: t(7.5, 6.5, 6),
+    row: t(7.5, 6.5, 6),
+    currencyOverrides: [ov(['THB'], t(9, 8, 7.5))],
+  },
+  {
+    supplier: 'Ezugi (GMAG)',
+    type: 'LIVE CASINO',
+    asia: t(8.5, 7.5, 7),
+    row: t(8.5, 7.5, 7),
+    specialInstructions: 'Includes premium games',
+  },
+  { supplier: 'SEXYBCRT', type: 'LIVE CASINO', asia: t(9, 8, 7.5), row: t(9, 8, 7.5) },
+  { supplier: 'DPGame', type: 'LIVE CASINO', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+  { supplier: 'SaGaming', type: 'LIVE CASINO', asia: t(8, 7, 6.5), row: t(8, 7, 6.5) },
+];

@@ -7,5 +7,8 @@ import { superAdminSeeder } from './seeders/superAdmin.seeder';
  *
  * Game catalogue is NOT registered here. Run it manually with `npm run seed:games`
  * so Docker deploys do not seed or ship gameData.
+ *
+ * API quotation is NOT registered here. Run it manually with `npm run seed:quotations`
+ * so admin CRUD edits are not overwritten on every boot.
  */
 export const seeders: Seeder[] = [superAdminSeeder];
