@@ -1,12 +1,16 @@
 import mongoose from 'mongoose';
-import { AppError } from '../../utils/errors';
+import { AppError, ValidationError } from '../../utils/errors';
 import { extractPrefixFromMemberAccount } from './transaction.validation';
 import { PlayerBalance } from './playerBalance.model';
 import {
   CallbackGameTransaction,
   ICallbackGameTransaction,
 } from './callbackTransaction.model';
-import { CallbackBalanceInput, CallbackSettleInput } from './callback.validation';
+import {
+  CallbackBalanceInput,
+  CallbackCreditInput,
+  CallbackSettleInput,
+} from './callback.validation';
 
 function roundMoney(value: number): number {
   return Math.round(value * 10000) / 10000;
@@ -70,6 +74,31 @@ export class CallbackService {
       currency_code: input.currency_code,
       balance,
       credit_amount: String(balance),
+    };
+  }
+
+  async setBalance(input: CallbackCreditInput) {
+    const balance = roundMoney(input.balance);
+    const wallet = await PlayerBalance.findOneAndUpdate(
+      {
+        member_account: input.member_account,
+        currency_code: input.currency_code,
+      },
+      {
+        $set: { balance },
+        $setOnInsert: {
+          member_account: input.member_account,
+          currency_code: input.currency_code,
+        },
+      },
+      { upsert: true, new: true },
+    );
+
+    return {
+      member_account: input.member_account,
+      currency_code: input.currency_code,
+      balance: wallet?.balance ?? balance,
+      credit_amount: String(wallet?.balance ?? balance),
     };
   }
 
@@ -161,6 +190,14 @@ export class CallbackService {
 
     const balanceBefore = wallet ? wallet.balance : 0;
     const balanceAfter = roundMoney(balanceBefore - input.bet_amount + input.win_amount);
+
+    if (balanceAfter < 0) {
+      throw new ValidationError('Insufficient balance', {
+        balanceBefore,
+        balanceAfter,
+        credit_amount: String(balanceBefore),
+      });
+    }
 
     const [created] = await CallbackGameTransaction.create(
       [

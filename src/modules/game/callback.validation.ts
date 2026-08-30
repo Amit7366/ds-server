@@ -24,5 +24,15 @@ export const callbackBalanceSchema = z.object({
   currency_code: z.string().trim().min(1).default('BDT'),
 });
 
+export const callbackCreditSchema = z.object({
+  member_account: z.string().trim().min(1, 'member_account is required'),
+  currency_code: z.string().trim().min(1).default('BDT'),
+  balance: z.preprocess(
+    (v) => (v === undefined || v === null || v === '' ? 0 : v),
+    z.coerce.number({ error: 'balance must be a number' }).min(0, 'balance cannot be negative'),
+  ),
+});
+
 export type CallbackSettleInput = z.infer<typeof callbackSettleSchema>;
 export type CallbackBalanceInput = z.infer<typeof callbackBalanceSchema>;
+export type CallbackCreditInput = z.infer<typeof callbackCreditSchema>;

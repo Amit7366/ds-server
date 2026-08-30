@@ -15,6 +15,7 @@ import {
   toTxGameLaunchBody,
   toTxGetWithdrawBody,
 } from './game.validation';
+import { callbackService } from './callback.service';
 
 type TxGameLaunchResponse = {
   code?: number;
@@ -102,6 +103,12 @@ export class GameService {
       });
     }
 
+    await callbackService.setBalance({
+      member_account: upstreamBody.member_account,
+      currency_code: upstreamBody.currency_code,
+      balance: upstreamBody.credit_amount,
+    });
+
     // Partners only receive the final session payload (e.g. game launch URL).
     // Hide internal provider player naming from the public response.
     if (typeof upstream.payload === 'object' && upstream.payload !== null && !Array.isArray(upstream.payload)) {
@@ -129,6 +136,12 @@ export class GameService {
         error: upstream.error,
       });
     }
+
+    await callbackService.setBalance({
+      member_account: upstreamBody.member_account,
+      currency_code: upstreamBody.currency_code,
+      balance: 0,
+    });
 
     return {
       amount: upstream.amount,

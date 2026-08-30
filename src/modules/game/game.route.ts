@@ -7,7 +7,11 @@ import {
   fetchTransactionsSchema,
   ingestTransactionsSchema,
 } from './transaction.validation';
-import { callbackBalanceSchema, callbackSettleSchema } from './callback.validation';
+import {
+  callbackBalanceSchema,
+  callbackCreditSchema,
+  callbackSettleSchema,
+} from './callback.validation';
 import * as gameController from './game.controller';
 
 const router = Router();
@@ -63,6 +67,14 @@ router.post(
   authenticateCallbackSecret,
   validate(callbackBalanceSchema),
   gameController.callbackBalance,
+);
+
+router.post(
+  '/callback/credit',
+  callbackLimiter,
+  authenticateCallbackSecret,
+  validate(callbackCreditSchema),
+  gameController.callbackCredit,
 );
 
 export default router;

@@ -9,7 +9,11 @@ import {
   FetchTransactionsInput,
   IngestTransactionsInput,
 } from './transaction.validation';
-import { CallbackBalanceInput, CallbackSettleInput } from './callback.validation';
+import {
+  CallbackBalanceInput,
+  CallbackCreditInput,
+  CallbackSettleInput,
+} from './callback.validation';
 
 export const gameLaunch = asyncHandler(async (req: Request, res: Response) => {
   const data = await gameService.launch(req.body as GameLaunchInput);
@@ -39,4 +43,9 @@ export const callbackSettle = asyncHandler(async (req: Request, res: Response) =
 export const callbackBalance = asyncHandler(async (req: Request, res: Response) => {
   const data = await callbackService.getBalance(req.body as CallbackBalanceInput);
   return sendSuccess(res, data, 'Balance fetched');
+});
+
+export const callbackCredit = asyncHandler(async (req: Request, res: Response) => {
+  const data = await callbackService.setBalance(req.body as CallbackCreditInput);
+  return sendSuccess(res, data, 'Balance credited');
 });
