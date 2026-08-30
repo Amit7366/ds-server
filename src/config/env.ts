@@ -36,6 +36,7 @@ const envSchema = z.object({
     .min(1, 'GET_WITHDRAW_AGENCY_UID is required')
     .default('d5806564bab3b30e0eba2148ebb8e7bd'),
   CRON_SECRET: z.string().trim().optional().default(''),
+  GAME_CALLBACK_SECRET: z.string().trim().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);

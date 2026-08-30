@@ -68,6 +68,21 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
   }
 }
 
+export function authenticateCallbackSecret(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+) {
+  const provided = String(req.headers['x-callback-secret'] ?? '').trim();
+  if (!env.GAME_CALLBACK_SECRET) {
+    return next(new UnauthorizedError('Callback secret is not configured'));
+  }
+  if (!provided || provided !== env.GAME_CALLBACK_SECRET) {
+    return next(new UnauthorizedError('Invalid callback secret'));
+  }
+  return next();
+}
+
 export function authenticateAdminOrCron(
   req: Request,
   res: Response,
