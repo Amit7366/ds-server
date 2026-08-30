@@ -1,6 +1,7 @@
 import { apiQuotationSeedRows } from '../../data/apiQuotationData';
 import { buildSupplierKey, buildTypeKey } from '../../modules/apiQuotation/apiQuotation.keys';
 import { ApiQuotation } from '../../modules/apiQuotation/apiQuotation.model';
+import { resolveDefaultProviderKeys } from '../../modules/apiQuotation/apiQuotation.providers';
 import { ensureCollection } from '../helpers';
 import { Seeder } from '../types';
 
@@ -29,6 +30,7 @@ export const apiQuotationSeeder: Seeder = {
           from10kTo1M: item.from10kTo1M,
           over1M: item.over1M,
         })),
+        providerKeys: resolveDefaultProviderKeys(supplier, buildSupplierKey(supplier)),
         sortOrder: index,
       };
     });

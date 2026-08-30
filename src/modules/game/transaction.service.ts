@@ -1,5 +1,7 @@
 import { User } from '../user/user.model';
 import {
+  BillingPlan,
+  DEFAULT_BILLING_PLAN,
   DEFAULT_GGR_DEDUCTION_PERCENT,
   resolveGgrDeductionRate,
   UserRole,
@@ -51,6 +53,7 @@ type BettingStats = {
 type DashboardListInput = {
   prefix: string;
   ggrDeductionPercent?: number | null;
+  billingPlan?: BillingPlan | null;
   page: number;
   limit: number;
   fromDate?: string;
@@ -226,9 +229,13 @@ export class TransactionService {
         prefix: { $in: prefixes },
         role: UserRole.USER,
       })
-        .select('prefix ggrDeductionPercent')
+        .select('prefix ggrDeductionPercent billingPlan')
         .lean();
       for (const partner of partners) {
+        if ((partner.billingPlan ?? DEFAULT_BILLING_PLAN) === BillingPlan.MONTHLY) {
+          rateByPrefix.set(partner.prefix, 0);
+          continue;
+        }
         rateByPrefix.set(partner.prefix, resolveGgrDeductionRate(partner.ggrDeductionPercent));
       }
     }
@@ -243,7 +250,8 @@ export class TransactionService {
       const betAmount = parseAmount(doc.bet_amount);
       if (betAmount <= 0) continue;
 
-      const rate = rateByPrefix.get(doc.prefix) ?? resolveGgrDeductionRate(null);
+      const rate = rateByPrefix.get(doc.prefix);
+      if (rate === undefined || rate <= 0) continue;
       const lossDeduction = betAmount * rate;
       deductionByPrefix.set(
         doc.prefix,
@@ -358,7 +366,8 @@ export class TransactionService {
    */
   async listForDashboard(input: DashboardListInput) {
     const prefix = input.prefix.trim().toUpperCase();
-    const rate = resolveGgrDeductionRate(input.ggrDeductionPercent);
+    const monthly = input.billingPlan === BillingPlan.MONTHLY;
+    const rate = monthly ? 0 : resolveGgrDeductionRate(input.ggrDeductionPercent);
     const percent =
       typeof input.ggrDeductionPercent === 'number' && Number.isFinite(input.ggrDeductionPercent)
         ? input.ggrDeductionPercent
@@ -421,9 +430,13 @@ export class TransactionService {
   async summarizeForPrefix(input: {
     prefix: string;
     ggrDeductionPercent?: number | null;
+    billingPlan?: BillingPlan | null;
   }) {
     const prefix = input.prefix.trim().toUpperCase();
-    const rate = resolveGgrDeductionRate(input.ggrDeductionPercent);
+    const rate =
+      input.billingPlan === BillingPlan.MONTHLY
+        ? 0
+        : resolveGgrDeductionRate(input.ggrDeductionPercent);
     return aggregateBettingStats(buildDashboardMatch({ prefix }), rate);
   }
 }

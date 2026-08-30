@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { ApiQuotation, IApiQuotationDocument, IRateTier } from './apiQuotation.model';
 import { buildSupplierKey, buildTypeKey } from './apiQuotation.keys';
+import { resolveEffectiveProviderKeys } from './apiQuotation.providers';
 import {
   CreateQuotationInput,
   ListQuotationsQuery,
@@ -72,6 +73,7 @@ export class ApiQuotationService {
         { typeKey: regex },
         { specialInstructions: regex },
         { currency: regex },
+        { providerKeys: regex },
       ];
     }
 
@@ -136,6 +138,11 @@ export class ApiQuotationService {
         from10kTo1M: item.from10kTo1M,
         over1M: item.over1M,
       })),
+      providerKeys: resolveEffectiveProviderKeys({
+        supplier,
+        supplierKey,
+        providerKeys: input.providerKeys,
+      }),
       sortOrder: input.sortOrder ?? 0,
     });
 
@@ -178,6 +185,13 @@ export class ApiQuotationService {
         })),
       );
     }
+    if (input.providerKeys !== undefined) {
+      quotation.providerKeys = resolveEffectiveProviderKeys({
+        supplier: quotation.supplier,
+        supplierKey: quotation.supplierKey,
+        providerKeys: input.providerKeys,
+      });
+    }
     if (input.sortOrder !== undefined) {
       quotation.sortOrder = input.sortOrder;
     }
@@ -192,6 +206,13 @@ export class ApiQuotationService {
       await assertKeyAvailable(nextSupplierKey, nextTypeKey, quotation._id.toString());
       quotation.supplierKey = nextSupplierKey;
       quotation.typeKey = nextTypeKey;
+      if (input.providerKeys === undefined) {
+        quotation.providerKeys = resolveEffectiveProviderKeys({
+          supplier: quotation.supplier,
+          supplierKey: nextSupplierKey,
+          providerKeys: quotation.providerKeys,
+        });
+      }
     }
 
     await quotation.save();

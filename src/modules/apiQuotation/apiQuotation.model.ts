@@ -24,6 +24,7 @@ export interface IApiQuotation {
   row: IRateTier | null;
   specialInstructions: string;
   currencyOverrides: ICurrencyOverride[];
+  providerKeys: string[];
   sortOrder: number;
   createdAt: Date;
   updatedAt: Date;
@@ -71,6 +72,7 @@ const apiQuotationSchema = new Schema<IApiQuotationDocument, IApiQuotationModel>
     row: { type: rateTierSchema, default: null },
     specialInstructions: { type: String, default: '', trim: true },
     currencyOverrides: { type: [currencyOverrideSchema], default: [] },
+    providerKeys: [{ type: String, trim: true, lowercase: true }],
     sortOrder: { type: Number, default: 0 },
   },
   {
@@ -82,6 +84,7 @@ const apiQuotationSchema = new Schema<IApiQuotationDocument, IApiQuotationModel>
 apiQuotationSchema.index({ supplierKey: 1, typeKey: 1 }, { unique: true });
 apiQuotationSchema.index({ sortOrder: 1, supplier: 1 });
 apiQuotationSchema.index({ supplier: 1 });
+apiQuotationSchema.index({ providerKeys: 1 });
 
 function rateToSafe(tier: IRateTier | null | undefined): IRateTier | null {
   if (!tier || typeof tier.under10k !== 'number') return null;
@@ -113,6 +116,7 @@ apiQuotationSchema.methods.toSafeObject = function toSafeObject(
       from10kTo1M: item.from10kTo1M,
       over1M: item.over1M,
     })),
+    providerKeys: this.providerKeys ?? [],
     sortOrder: this.sortOrder ?? 0,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

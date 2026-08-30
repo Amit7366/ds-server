@@ -1,6 +1,12 @@
 import { env } from '../../config/env';
 import { User } from '../user/user.model';
-import { resolveGgrDeductionRate, resolveUserCurrency, UserStatus } from '../../utils/constants';
+import {
+  BillingPlan,
+  DEFAULT_BILLING_PLAN,
+  resolveGgrDeductionRate,
+  resolveUserCurrency,
+  UserStatus,
+} from '../../utils/constants';
 import { verifyApiSecret } from '../../utils/crypto';
 import { AppError, ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
 import {
@@ -53,14 +59,24 @@ export class GameService {
     const user = await this.authenticatePartner(input.prefix, input.apiSecret);
 
     const ggrBalance = user.ggrBalance ?? 0;
-    const ggrRate = resolveGgrDeductionRate(user.ggrDeductionPercent);
-    const ggrRequired = Math.round(input.balance * ggrRate * 10000) / 10000;
-    if (ggrRequired > ggrBalance) {
-      throw new ValidationError('Balance exceeds available GGR balance', {
-        balance: input.balance,
-        ggrRequired,
-        ggrBalance,
-      });
+    const billingPlan = user.billingPlan ?? DEFAULT_BILLING_PLAN;
+    if (billingPlan === BillingPlan.MONTHLY) {
+      if (ggrBalance <= 0) {
+        throw new ValidationError('Prepaid GGR balance is exhausted', {
+          billingPlan,
+          ggrBalance,
+        });
+      }
+    } else {
+      const ggrRate = resolveGgrDeductionRate(user.ggrDeductionPercent);
+      const ggrRequired = Math.round(input.balance * ggrRate * 10000) / 10000;
+      if (ggrRequired > ggrBalance) {
+        throw new ValidationError('Balance exceeds available GGR balance', {
+          balance: input.balance,
+          ggrRequired,
+          ggrBalance,
+        });
+      }
     }
 
     const upstreamBody = toTxGameLaunchBody({

@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { env } from '../config/env';
 import { UserRole, UserStatus } from '../utils/constants';
 import { ForbiddenError, UnauthorizedError } from '../utils/errors';
 import { verifyAccessToken } from '../utils/jwt';
@@ -65,6 +66,22 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     }
     return next(new UnauthorizedError('Invalid or expired token'));
   }
+}
+
+export function authenticateAdminOrCron(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  const provided = String(req.headers['x-cron-secret'] ?? '').trim();
+  if (env.CRON_SECRET && provided && provided === env.CRON_SECRET) {
+    return next();
+  }
+
+  return authenticate(req, res, (error) => {
+    if (error) return next(error);
+    return authorize(UserRole.SUPER_ADMIN)(req, res, next);
+  });
 }
 
 export function authorize(...roles: UserRole[]) {

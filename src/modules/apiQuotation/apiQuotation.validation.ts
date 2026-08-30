@@ -27,6 +27,7 @@ export const createQuotationSchema = z.object({
   row: rateTierSchema.nullable().optional().default(null),
   specialInstructions: optionalTrimmed(2000).default(''),
   currencyOverrides: z.array(currencyOverrideSchema).max(40).optional().default([]),
+  providerKeys: z.array(z.string().trim().min(1).max(80)).max(40).optional().default([]),
   sortOrder: z.coerce.number().int().min(0).max(1_000_000).optional().default(0),
 });
 
@@ -40,6 +41,7 @@ export const updateQuotationSchema = z
     row: rateTierSchema.nullable().optional(),
     specialInstructions: optionalTrimmed(2000),
     currencyOverrides: z.array(currencyOverrideSchema).max(40).optional(),
+    providerKeys: z.array(z.string().trim().min(1).max(80)).max(40).optional(),
     sortOrder: z.coerce.number().int().min(0).max(1_000_000).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {

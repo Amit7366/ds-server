@@ -1,5 +1,9 @@
 import mongoose, { Document, Model, Schema, Types } from 'mongoose';
 import {
+  BillingPlan,
+  BillingRegion,
+  DEFAULT_BILLING_PLAN,
+  DEFAULT_BILLING_REGION,
   DEFAULT_GGR_DEDUCTION_PERCENT,
   DEFAULT_USER_CURRENCY,
   ServiceType,
@@ -24,6 +28,9 @@ export interface IUser {
   currency: UserCurrency;
   status: UserStatus;
   serviceType: ServiceType;
+  billingPlan: BillingPlan;
+  billingRegion: BillingRegion;
+  monthlySince?: Date | null;
   createdBy?: Types.ObjectId | null;
   refreshTokenHash?: string | null;
   createdAt: Date;
@@ -127,6 +134,20 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
       enum: Object.values(ServiceType),
       default: ServiceType.STAGING,
     },
+    billingPlan: {
+      type: String,
+      enum: Object.values(BillingPlan),
+      default: DEFAULT_BILLING_PLAN,
+    },
+    billingRegion: {
+      type: String,
+      enum: Object.values(BillingRegion),
+      default: DEFAULT_BILLING_REGION,
+    },
+    monthlySince: {
+      type: Date,
+      default: null,
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -145,6 +166,7 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
 );
 
 userSchema.index({ role: 1, status: 1 });
+userSchema.index({ role: 1, billingPlan: 1 });
 userSchema.index({ createdAt: -1 });
 
 userSchema.statics.normalizeEmail = function normalizeEmail(email: string): string {
@@ -169,6 +191,9 @@ userSchema.methods.toSafeObject = function toSafeObject(
     currency: this.currency ?? DEFAULT_USER_CURRENCY,
     status: this.status,
     serviceType: this.serviceType,
+    billingPlan: this.billingPlan ?? DEFAULT_BILLING_PLAN,
+    billingRegion: this.billingRegion ?? DEFAULT_BILLING_REGION,
+    monthlySince: this.monthlySince ? this.monthlySince.toISOString() : null,
     createdBy: this.createdBy ? this.createdBy.toString() : null,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

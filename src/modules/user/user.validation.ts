@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ServiceType, UserCurrency, UserStatus } from '../../utils/constants';
+import { BillingPlan, BillingRegion, ServiceType, UserCurrency, UserStatus } from '../../utils/constants';
 import {
   isValidTimestampBound,
   normalizeTimestampBound,
@@ -46,6 +46,8 @@ export const createUserSchema = z.object({
   currency: z.nativeEnum(UserCurrency).optional().default(UserCurrency.BDT),
   status: z.nativeEnum(UserStatus).optional().default(UserStatus.ACTIVE),
   serviceType: z.nativeEnum(ServiceType).optional().default(ServiceType.STAGING),
+  billingPlan: z.nativeEnum(BillingPlan).optional().default(BillingPlan.PERCENTAGE),
+  billingRegion: z.nativeEnum(BillingRegion).optional().default(BillingRegion.ASIA),
   prefix: z
     .string()
     .trim()
@@ -72,6 +74,8 @@ export const updateUserSchema = z
     currency: z.nativeEnum(UserCurrency).optional(),
     status: z.nativeEnum(UserStatus).optional(),
     serviceType: z.nativeEnum(ServiceType).optional(),
+    billingPlan: z.nativeEnum(BillingPlan).optional(),
+    billingRegion: z.nativeEnum(BillingRegion).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: 'At least one field must be provided',

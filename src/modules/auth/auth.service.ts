@@ -1,6 +1,6 @@
 import { User } from '../user/user.model';
 import { ChangePasswordInput, LoginInput } from '../user/user.validation';
-import { UserStatus } from '../../utils/constants';
+import { UserStatus, UserRole } from '../../utils/constants';
 import { comparePassword, hashPassword } from '../../utils/crypto';
 import { ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
 import {
@@ -10,6 +10,7 @@ import {
   verifyRefreshToken,
 } from '../../utils/jwt';
 import bcrypt from 'bcryptjs';
+import { ggrSettlementService } from '../ggrSettlement/ggrSettlement.service';
 
 export class AuthService {
   private buildPayload(user: { _id: { toString(): string }; email: string; role: TokenPayload['role'] }): TokenPayload {
@@ -43,6 +44,12 @@ export class AuthService {
 
     user.refreshTokenHash = await hashPassword(refreshToken);
     await user.save();
+
+    if (user.role === UserRole.SUPER_ADMIN) {
+      void ggrSettlementService.autoSettleDueMonths().catch((error) => {
+        console.error('[ggr] auto-settle after login failed', error);
+      });
+    }
 
     return {
       user: user.toSafeObject(),

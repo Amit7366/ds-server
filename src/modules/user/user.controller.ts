@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { userService } from './user.service';
+import { ggrSettlementService } from '../ggrSettlement/ggrSettlement.service';
 import { sendCreated, sendSuccess } from '../../utils/apiResponse';
 import { asyncHandler } from '../../utils/asyncHandler';
 import {
@@ -86,7 +87,8 @@ export const revealMySecret = asyncHandler(async (req: Request, res: Response) =
 
 export const getMyProfile = asyncHandler(async (req: Request, res: Response) => {
   const user = await userService.getProfile(req.user!.id);
-  return sendSuccess(res, { user }, 'Profile retrieved');
+  const lastSettlement = await ggrSettlementService.getLatestForUser(req.user!.id);
+  return sendSuccess(res, { user, lastSettlement }, 'Profile retrieved');
 });
 
 export const listMyTransactions = asyncHandler(async (req: Request, res: Response) => {

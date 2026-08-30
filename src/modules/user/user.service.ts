@@ -6,7 +6,14 @@ import {
 } from './user.validation';
 import mongoose from 'mongoose';
 import { User, IUserDocument } from './user.model';
-import { DEFAULT_GGR_DEDUCTION_PERCENT, DEFAULT_USER_CURRENCY, UserRole } from '../../utils/constants';
+import {
+  BillingPlan,
+  DEFAULT_BILLING_PLAN,
+  DEFAULT_BILLING_REGION,
+  DEFAULT_GGR_DEDUCTION_PERCENT,
+  DEFAULT_USER_CURRENCY,
+  UserRole,
+} from '../../utils/constants';
 import {
   decryptApiSecret,
   encryptApiSecret,
@@ -18,6 +25,7 @@ import {
 } from '../../utils/crypto';
 import { AppError, ConflictError, NotFoundError } from '../../utils/errors';
 import { transactionService } from '../game/transaction.service';
+import { ggrSettlementService } from '../ggrSettlement/ggrSettlement.service';
 
 async function ensureUniquePrefix(preferred?: string): Promise<string> {
   if (preferred) {
@@ -79,6 +87,10 @@ export class UserService {
       currency: input.currency ?? DEFAULT_USER_CURRENCY,
       status: input.status,
       serviceType: input.serviceType,
+      billingPlan: input.billingPlan ?? DEFAULT_BILLING_PLAN,
+      billingRegion: input.billingRegion ?? DEFAULT_BILLING_REGION,
+      monthlySince:
+        (input.billingPlan ?? DEFAULT_BILLING_PLAN) === BillingPlan.MONTHLY ? new Date() : null,
       createdBy: createdById ?? null,
     });
 
@@ -148,6 +160,7 @@ export class UserService {
     const stats = await transactionService.summarizeForPrefix({
       prefix: user.prefix,
       ggrDeductionPercent: user.ggrDeductionPercent,
+      billingPlan: user.billingPlan,
     });
 
     return {
@@ -173,6 +186,7 @@ export class UserService {
     const listed = await transactionService.listForDashboard({
       prefix: user.prefix,
       ggrDeductionPercent: user.ggrDeductionPercent,
+      billingPlan: user.billingPlan,
       page: query.page,
       limit: query.limit,
       fromDate: query.fromDate,
@@ -180,10 +194,15 @@ export class UserService {
       playerId: query.playerId,
     });
 
+    const lastSettlement = await ggrSettlementService.getLatestForUser(user._id.toString());
+
     return {
       currentGgrBalance: user.ggrBalance ?? 0,
       ggrDeductionPercent: listed.ggrDeductionPercent,
+      billingPlan: user.billingPlan ?? DEFAULT_BILLING_PLAN,
+      billingRegion: user.billingRegion ?? DEFAULT_BILLING_REGION,
       currency: user.currency ?? DEFAULT_USER_CURRENCY,
+      lastSettlement,
       items: listed.items,
       pagination: listed.pagination,
       stats: listed.stats,
@@ -207,6 +226,18 @@ export class UserService {
     if (input.currency !== undefined) user.currency = input.currency;
     if (input.status !== undefined) user.status = input.status;
     if (input.serviceType !== undefined) user.serviceType = input.serviceType;
+    if (input.billingPlan !== undefined) {
+      const nextPlan = input.billingPlan;
+      const previousPlan = user.billingPlan ?? DEFAULT_BILLING_PLAN;
+      if (nextPlan === BillingPlan.MONTHLY && previousPlan !== BillingPlan.MONTHLY) {
+        user.monthlySince = new Date();
+      }
+      if (nextPlan !== BillingPlan.MONTHLY) {
+        user.monthlySince = null;
+      }
+      user.billingPlan = nextPlan;
+    }
+    if (input.billingRegion !== undefined) user.billingRegion = input.billingRegion;
     if (input.password) {
       user.password = await hashPassword(input.password);
     }
