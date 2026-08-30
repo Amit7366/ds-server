@@ -2,10 +2,11 @@ import mongoose from 'mongoose';
 import {
   BillingPlan,
   BillingRegion,
+  DEFAULT_BILLING_PLAN,
   DEFAULT_BILLING_REGION,
   UserRole,
 } from '../../utils/constants';
-import { NotFoundError, ValidationError } from '../../utils/errors';
+import { NotFoundError, ValidationError, ForbiddenError } from '../../utils/errors';
 import { ApiQuotation } from '../apiQuotation/apiQuotation.model';
 import { GameCatalogue } from '../game/gameCatalogue.model';
 import { GameTransaction } from '../game/transaction.model';
@@ -63,6 +64,13 @@ function toQuotationSource(doc: {
     providerKeys: doc.providerKeys ?? [],
     sortOrder: doc.sortOrder ?? 0,
   };
+}
+
+function assertSettlementAccess(actor: { id: string; role: string } | undefined, ownerId: string) {
+  if (!actor) return;
+  if (actor.role === UserRole.SUPER_ADMIN) return;
+  if (actor.id === ownerId) return;
+  throw new ForbiddenError('You cannot view this GGR report');
 }
 
 export type SettlementPreview = {
@@ -371,6 +379,12 @@ export class GgrSettlementService {
   async list(query: ListSettlementsQuery) {
     const filter: Record<string, unknown> = {};
     if (query.month) filter.month = query.month;
+    if (query.userId) {
+      if (!mongoose.Types.ObjectId.isValid(query.userId)) {
+        throw new ValidationError('Invalid userId');
+      }
+      filter.userId = query.userId;
+    }
     if (query.search) {
       const regex = new RegExp(query.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
       filter.prefix = regex;
@@ -463,7 +477,10 @@ export class GgrSettlementService {
     return aggregated;
   }
 
-  async getPdf(id: string) {
+  async getPdf(
+    id: string,
+    actor?: { id: string; role: string },
+  ) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new NotFoundError('Settlement not found');
     }
@@ -471,6 +488,7 @@ export class GgrSettlementService {
     if (!settlement) {
       throw new NotFoundError('Settlement not found');
     }
+    assertSettlementAccess(actor, settlement.userId.toString());
     const owner = await User.findById(settlement.userId).select('name email prefix');
     const source: SettlementPdfSource = {
       prefix: settlement.prefix,
@@ -485,6 +503,48 @@ export class GgrSettlementService {
       lines: settlement.lines,
       unmatched: settlement.unmatched,
       settledAt: settlement.settledAt,
+    };
+    const buffer = await buildSettlementPdf(source);
+    return { buffer, filename: `${source.prefix}-${source.month}-ggr.pdf` };
+  }
+
+  async getReportPdf(input: {
+    month: string;
+    userId: string;
+    actor?: { id: string; role: string };
+  }) {
+    assertSettlementAccess(input.actor, input.userId);
+    if (!mongoose.Types.ObjectId.isValid(input.userId)) {
+      throw new NotFoundError('User not found');
+    }
+    const user = await User.findById(input.userId);
+    if (!user || user.role !== UserRole.USER) {
+      throw new NotFoundError('User not found');
+    }
+
+    const existing = await GgrSettlement.findOne({ userId: user._id, month: input.month });
+    if (existing) {
+      return this.getPdf(existing._id.toString(), input.actor);
+    }
+
+    if ((user.billingPlan ?? DEFAULT_BILLING_PLAN) !== BillingPlan.MONTHLY) {
+      throw new ValidationError('No monthly GGR report for this user and month');
+    }
+
+    const computed = await computeForUser(user, input.month);
+    const source: SettlementPdfSource = {
+      prefix: user.prefix,
+      month: input.month,
+      name: user.name,
+      email: user.email,
+      billingRegion: computed.billingRegion,
+      previousBalance: computed.currentBalance,
+      totalGgr: computed.totalGgr,
+      deducted: 0,
+      newBalance: computed.currentBalance,
+      lines: computed.lines,
+      unmatched: computed.unmatched,
+      draft: true,
     };
     const buffer = await buildSettlementPdf(source);
     return { buffer, filename: `${source.prefix}-${source.month}-ggr.pdf` };

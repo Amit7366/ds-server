@@ -7,6 +7,7 @@ import {
   listSettlementsQuerySchema,
   previewSettlementSchema,
   rechargeGgrSchema,
+  reportPdfQuerySchema,
   settleMonthSchema,
 } from './ggrSettlement.validation';
 import * as ggrSettlementController from './ggrSettlement.controller';
@@ -23,6 +24,17 @@ router.post(
 router.use(authenticate);
 
 router.get('/me/latest', ggrSettlementController.getMyLatestSettlement);
+router.get(
+  '/me',
+  validate(listSettlementsQuerySchema, 'query'),
+  ggrSettlementController.listMySettlements,
+);
+router.get(
+  '/report-pdf',
+  validate(reportPdfQuerySchema, 'query'),
+  ggrSettlementController.downloadReportPdf,
+);
+router.get('/:id/pdf', ggrSettlementController.downloadSettlementPdf);
 
 router.use(authorize(UserRole.SUPER_ADMIN));
 
@@ -51,8 +63,6 @@ router.get(
   validate(listSettlementsQuerySchema, 'query'),
   ggrSettlementController.listSettlements,
 );
-
-router.get('/:id/pdf', ggrSettlementController.downloadSettlementPdf);
 
 router.get('/:id', ggrSettlementController.getSettlement);
 

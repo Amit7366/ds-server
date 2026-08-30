@@ -21,6 +21,13 @@ export const listSettlementsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   month: z.string().trim().optional().default(''),
   search: z.string().trim().optional().default(''),
+  userId: z.string().trim().optional().default(''),
+});
+
+export const reportPdfQuerySchema = z.object({
+  month: monthSchema,
+  userId: z.string().trim().min(1).optional(),
+  download: z.string().optional(),
 });
 
 export const rechargeGgrSchema = z.object({
@@ -39,5 +46,6 @@ export const listRechargesQuerySchema = z.object({
 export type PreviewSettlementInput = z.infer<typeof previewSettlementSchema>;
 export type SettleMonthInput = z.infer<typeof settleMonthSchema>;
 export type ListSettlementsQuery = z.infer<typeof listSettlementsQuerySchema>;
+export type ReportPdfQuery = z.infer<typeof reportPdfQuerySchema>;
 export type RechargeGgrInput = z.infer<typeof rechargeGgrSchema>;
 export type ListRechargesQuery = z.infer<typeof listRechargesQuerySchema>;
