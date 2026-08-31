@@ -11,8 +11,10 @@ import { verifyApiSecret } from '../../utils/crypto';
 import { AppError, ForbiddenError, UnauthorizedError, ValidationError } from '../../utils/errors';
 import {
   GameLaunchInput,
+  GameLaunchV2Input,
   GetWithdrawInput,
   toTxGameLaunchBody,
+  toTxGameLaunchV2Body,
   toTxGetWithdrawBody,
 } from './game.validation';
 import { callbackService } from './callback.service';
@@ -58,7 +60,61 @@ export class GameService {
 
   async launch(input: GameLaunchInput) {
     const user = await this.authenticatePartner(input.prefix, input.apiSecret);
+    this.assertGgrAllowsLaunch(user, input.balance);
 
+    const upstreamBody = toTxGameLaunchBody({
+      ...input,
+      currencyCode: resolveUserCurrency(user.currency),
+    });
+    return this.executeLaunch(upstreamBody, env.GAME_LAUNCH_UPSTREAM_URL);
+  }
+
+  async launchV2(input: GameLaunchV2Input) {
+    const user = await this.authenticatePartner(input.prefix, input.apiSecret);
+    this.assertGgrAllowsLaunch(user, input.balance);
+
+    const upstreamBody = toTxGameLaunchV2Body({
+      ...input,
+      currencyCode: resolveUserCurrency(user.currency),
+    });
+    return this.executeLaunch(upstreamBody, env.GAME_LAUNCH_V2_UPSTREAM_URL);
+  }
+
+  async getWithdraw(input: GetWithdrawInput) {
+    const user = await this.authenticatePartner(input.prefix, input.apiSecret);
+
+    const upstreamBody = toTxGetWithdrawBody({
+      ...input,
+      currencyCode: resolveUserCurrency(user.currency),
+    });
+    const upstream = await this.callWithdrawUpstream(upstreamBody);
+
+    if (upstream.status !== true) {
+      throw new AppError(upstream.message || 'Withdraw failed upstream', 502, {
+        status: upstream.status,
+        message: upstream.message,
+        amount: upstream.amount,
+        error: upstream.error,
+      });
+    }
+
+    await callbackService.setBalance({
+      member_account: upstreamBody.member_account,
+      currency_code: upstreamBody.currency_code,
+      balance: 0,
+    });
+
+    return {
+      amount: upstream.amount,
+      status: upstream.status,
+      message: upstream.message,
+    };
+  }
+
+  private assertGgrAllowsLaunch(
+    user: { ggrBalance?: number; billingPlan?: string; ggrDeductionPercent?: number },
+    balance: number,
+  ) {
     const ggrBalance = user.ggrBalance ?? 0;
     const billingPlan = user.billingPlan ?? DEFAULT_BILLING_PLAN;
     if (billingPlan === BillingPlan.MONTHLY) {
@@ -68,23 +124,25 @@ export class GameService {
           ggrBalance,
         });
       }
-    } else {
-      const ggrRate = resolveGgrDeductionRate(user.ggrDeductionPercent);
-      const ggrRequired = Math.round(input.balance * ggrRate * 10000) / 10000;
-      if (ggrRequired > ggrBalance) {
-        throw new ValidationError('Balance exceeds available GGR balance', {
-          balance: input.balance,
-          ggrRequired,
-          ggrBalance,
-        });
-      }
+      return;
     }
 
-    const upstreamBody = toTxGameLaunchBody({
-      ...input,
-      currencyCode: resolveUserCurrency(user.currency),
-    });
-    const upstream = await this.callLaunchUpstream(upstreamBody);
+    const ggrRate = resolveGgrDeductionRate(user.ggrDeductionPercent);
+    const ggrRequired = Math.round(balance * ggrRate * 10000) / 10000;
+    if (ggrRequired > ggrBalance) {
+      throw new ValidationError('Balance exceeds available GGR balance', {
+        balance,
+        ggrRequired,
+        ggrBalance,
+      });
+    }
+  }
+
+  private async executeLaunch(
+    upstreamBody: ReturnType<typeof toTxGameLaunchBody> | ReturnType<typeof toTxGameLaunchV2Body>,
+    upstreamUrl: string,
+  ) {
+    const upstream = await this.callLaunchUpstream(upstreamUrl, upstreamBody);
 
     if (upstream.code !== 0) {
       throw new AppError(upstream.msg || 'Game launch failed upstream', 502, {
@@ -119,43 +177,13 @@ export class GameService {
     return upstream.payload;
   }
 
-  async getWithdraw(input: GetWithdrawInput) {
-    const user = await this.authenticatePartner(input.prefix, input.apiSecret);
-
-    const upstreamBody = toTxGetWithdrawBody({
-      ...input,
-      currencyCode: resolveUserCurrency(user.currency),
-    });
-    const upstream = await this.callWithdrawUpstream(upstreamBody);
-
-    if (upstream.status !== true) {
-      throw new AppError(upstream.message || 'Withdraw failed upstream', 502, {
-        status: upstream.status,
-        message: upstream.message,
-        amount: upstream.amount,
-        error: upstream.error,
-      });
-    }
-
-    await callbackService.setBalance({
-      member_account: upstreamBody.member_account,
-      currency_code: upstreamBody.currency_code,
-      balance: 0,
-    });
-
-    return {
-      amount: upstream.amount,
-      status: upstream.status,
-      message: upstream.message,
-    };
-  }
-
   private async callLaunchUpstream(
-    body: ReturnType<typeof toTxGameLaunchBody>,
+    url: string,
+    body: ReturnType<typeof toTxGameLaunchBody> | ReturnType<typeof toTxGameLaunchV2Body>,
   ): Promise<TxGameLaunchResponse> {
     let response: Response;
     try {
-      response = await fetch(env.GAME_LAUNCH_UPSTREAM_URL, {
+      response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

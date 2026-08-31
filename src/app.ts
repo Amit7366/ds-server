@@ -8,6 +8,7 @@ import { createRateLimiter } from './middlewares/rateLimit';
 import authRoutes from './modules/auth/auth.route';
 import userRoutes from './modules/user/user.route';
 import gameRoutes from './modules/game/game.route';
+import gameV2Routes from './modules/game/game.v2.route';
 import gameCatalogueRoutes from './modules/game/gameCatalogue.route';
 import apiQuotationRoutes from './modules/apiQuotation/apiQuotation.route';
 import ggrSettlementRoutes from './modules/ggrSettlement/ggrSettlement.route';
@@ -65,6 +66,7 @@ export function createApp() {
   app.use('/api/v1/quotations', apiQuotationRoutes);
   app.use('/api/v1/ggr', ggrSettlementRoutes);
   app.use('/api/game/v1', gameRoutes);
+  app.use('/api/game/v2', gameV2Routes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

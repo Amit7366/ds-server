@@ -26,6 +26,15 @@ const envSchema = z.object({
     .trim()
     .min(1, 'GAME_LAUNCH_AGENCY_UID is required')
     .default('0b98f74aa493413ce882a9edef9f9ede'),
+  GAME_LAUNCH_V2_UPSTREAM_URL: z
+    .string()
+    .url()
+    .default('https://txserver.site/tgamelaunchv2.php'),
+  GAME_LAUNCH_V2_AGENCY_UID: z
+    .string()
+    .trim()
+    .min(1, 'GAME_LAUNCH_V2_AGENCY_UID is required')
+    .default('0b98f74aa493413ce882a9edef9f9ede'),
   GET_WITHDRAW_UPSTREAM_URL: z
     .string()
     .url()

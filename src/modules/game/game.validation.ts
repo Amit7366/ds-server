@@ -145,6 +145,38 @@ export function toTxGameLaunchBody(input: GameLaunchInput): TxGameLaunchBody {
   };
 }
 
+export const gameLaunchV2Schema = z.object({
+  ...credentialsSchema,
+  /** Maps to upstream `game_uid` */
+  gameCode: z.string().trim().min(1, 'gameCode is required'),
+  ...sharedSessionFields,
+  /** Maps to upstream `callback_url` (seamless wallet) */
+  callbackUrl: z.string().trim().url('callbackUrl must be a valid URL'),
+});
+
+export type GameLaunchV2Input = z.infer<typeof gameLaunchV2Schema>;
+
+/** Payload shape required by https://txserver.site/tgamelaunchv2.php */
+export type TxGameLaunchV2Body = TxGameLaunchBody & {
+  callback_url: string;
+};
+
+export function toTxGameLaunchV2Body(input: GameLaunchV2Input): TxGameLaunchV2Body {
+  return {
+    agency_uid: env.GAME_LAUNCH_V2_AGENCY_UID,
+    member_account: buildMemberAccount(input.playerId, input.prefix),
+    game_uid: input.gameCode,
+    credit_amount: input.balance,
+    currency_code: input.currencyCode,
+    language: input.language,
+    platform: String(input.platform),
+    home_url: input.homeUrl,
+    timestamp: input.timestamp,
+    transfer_id: input.transfer_id,
+    callback_url: input.callbackUrl,
+  };
+}
+
 export const getWithdrawSchema = z.object({
   ...credentialsSchema,
   ...sharedSessionFields,

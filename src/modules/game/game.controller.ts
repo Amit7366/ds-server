@@ -4,7 +4,7 @@ import { sendSuccess } from '../../utils/apiResponse';
 import { gameService } from './game.service';
 import { transactionService } from './transaction.service';
 import { callbackService } from './callback.service';
-import { GameLaunchInput, GetWithdrawInput } from './game.validation';
+import { GameLaunchInput, GameLaunchV2Input, GetWithdrawInput } from './game.validation';
 import {
   FetchTransactionsInput,
   IngestTransactionsInput,
@@ -17,6 +17,11 @@ import {
 
 export const gameLaunch = asyncHandler(async (req: Request, res: Response) => {
   const data = await gameService.launch(req.body as GameLaunchInput);
+  return sendSuccess(res, data, 'Game launch ready');
+});
+
+export const gameLaunchV2 = asyncHandler(async (req: Request, res: Response) => {
+  const data = await gameService.launchV2(req.body as GameLaunchV2Input);
   return sendSuccess(res, data, 'Game launch ready');
 });
 
