@@ -4,6 +4,7 @@ import {
   DEFAULT_BILLING_PLAN,
   DEFAULT_GGR_DEDUCTION_PERCENT,
   resolveGgrDeductionRate,
+  resolveUserCurrency,
   UserRole,
   UserStatus,
 } from '../../utils/constants';
@@ -339,12 +340,14 @@ export class TransactionService {
       GameTransaction.countDocuments(filter),
     ]);
 
+    const currencyCode = resolveUserCurrency(user.currency);
+
     return {
       items: items.map((doc) => ({
         id: String(doc._id),
         agency_uid: doc.agency_uid,
         serial_number: doc.serial_number,
-        currency_code: doc.currency_code,
+        currency_code: currencyCode,
         game_uid: doc.game_uid,
         member_account: toPublicPlayerId(doc.member_account, user.prefix),
         bet_amount: doc.bet_amount,
