@@ -21,6 +21,10 @@ export interface IUser {
   prefix: string;
   apiSecretHash: string;
   apiSecretEncrypted?: string | null;
+  /** Per-agent AES-256-ECB key for seamless callbacks (encrypted at rest). */
+  callbackAesKeyEncrypted?: string | null;
+  /** Operator callback URL from the last Game Launch V2 request. */
+  seamlessCallbackUrl?: string;
   whitelistDomain: string;
   whitelistIp: string;
   ggrBalance: number;
@@ -95,6 +99,17 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
       type: String,
       default: null,
       select: false,
+    },
+    callbackAesKeyEncrypted: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    seamlessCallbackUrl: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 2048,
     },
     whitelistDomain: {
       type: String,

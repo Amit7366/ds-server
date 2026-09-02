@@ -17,8 +17,9 @@ export const createUser = asyncHandler(async (req: Request, res: Response) => {
     {
       user: result.user,
       apiSecret: result.apiSecret,
+      callbackAesKey: result.callbackAesKey,
     },
-    'User created successfully. Store the API secret now — it will not be shown again.',
+    'User created successfully. Store the API secret and callback AES key now — they will not be shown again.',
   );
 });
 
@@ -82,6 +83,44 @@ export const revealMySecret = asyncHandler(async (req: Request, res: Response) =
       apiSecretMasked: result.apiSecretMasked,
     },
     'API secret revealed',
+  );
+});
+
+export const revealAesKey = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userService.revealCallbackAesKey(req.params.id as string);
+  return sendSuccess(
+    res,
+    {
+      user: result.user,
+      callbackAesKey: result.callbackAesKey,
+      callbackAesKeyMasked: result.callbackAesKeyMasked,
+    },
+    'Callback AES key revealed',
+  );
+});
+
+export const revealMyAesKey = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userService.revealCallbackAesKey(req.user!.id);
+  return sendSuccess(
+    res,
+    {
+      user: result.user,
+      callbackAesKey: result.callbackAesKey,
+      callbackAesKeyMasked: result.callbackAesKeyMasked,
+    },
+    'Callback AES key revealed',
+  );
+});
+
+export const regenerateAesKey = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userService.regenerateCallbackAesKey(req.params.id as string);
+  return sendSuccess(
+    res,
+    {
+      user: result.user,
+      callbackAesKey: result.callbackAesKey,
+    },
+    'Callback AES key regenerated. Store it now — in-flight seamless sessions still using the old key will fail.',
   );
 });
 

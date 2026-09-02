@@ -27,6 +27,12 @@ router.post(
   userController.revealMySecret,
 );
 
+router.post(
+  '/me/reveal-aes-key',
+  authorize(UserRole.USER, UserRole.SUPER_ADMIN),
+  userController.revealMyAesKey,
+);
+
 router.get(
   '/me/transactions',
   authorize(UserRole.USER, UserRole.SUPER_ADMIN),
@@ -73,6 +79,18 @@ router.post(
   '/:id/reveal-secret',
   authorize(UserRole.SUPER_ADMIN),
   userController.revealSecret,
+);
+
+router.post(
+  '/:id/reveal-aes-key',
+  authorize(UserRole.SUPER_ADMIN),
+  userController.revealAesKey,
+);
+
+router.post(
+  '/:id/regenerate-aes-key',
+  authorize(UserRole.SUPER_ADMIN),
+  userController.regenerateAesKey,
 );
 
 export default router;

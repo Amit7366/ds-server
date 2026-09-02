@@ -29,6 +29,11 @@ export function generateApiSecret(): string {
   return crypto.randomBytes(32).toString('hex');
 }
 
+/** Generate a 32-character hex AES key for seamless callback (AES-256-ECB). */
+export function generateCallbackAesKey(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
 /** Hash API secret with pepper for verification at rest */
 export async function hashApiSecret(plaintext: string): Promise<string> {
   const peppered = `${plaintext}.${env.API_SECRET_PEPPER}`;

@@ -247,6 +247,64 @@ export class CallbackService {
 
     return toSettleResult(created, input.timestamp, false);
   }
+
+  /**
+   * Log a seamless round for GGR after the operator accepts it.
+   * Does not gate on our wallet — operator credit_amount is source of truth.
+   */
+  async recordSeamlessRound(input: {
+    serial_number: string;
+    member_account: string;
+    bet_amount: number;
+    win_amount: number;
+    game_uid: string;
+    game_round: string;
+    currency_code: string;
+    timestamp: string;
+    credit_amount: number;
+  }): Promise<void> {
+    const existing = await CallbackGameTransaction.findOne({
+      serial_number: input.serial_number,
+    }).lean();
+    if (existing) {
+      await this.setBalance({
+        member_account: input.member_account,
+        currency_code: input.currency_code,
+        balance: roundMoney(input.credit_amount),
+      });
+      return;
+    }
+
+    const balanceAfter = roundMoney(input.credit_amount);
+    const balanceBefore = roundMoney(balanceAfter + input.bet_amount - input.win_amount);
+
+    try {
+      await CallbackGameTransaction.create({
+        serial_number: input.serial_number,
+        member_account: input.member_account,
+        prefix: extractPrefixFromMemberAccount(input.member_account),
+        bet_amount: input.bet_amount,
+        win_amount: input.win_amount,
+        game_uid: input.game_uid,
+        game_round: input.game_round,
+        currency_code: input.currency_code,
+        timestamp: input.timestamp,
+        balance_before: balanceBefore,
+        balance_after: balanceAfter,
+        status: 'completed',
+      });
+    } catch (err) {
+      if (!isDuplicateKey(err)) {
+        throw err;
+      }
+    }
+
+    await this.setBalance({
+      member_account: input.member_account,
+      currency_code: input.currency_code,
+      balance: balanceAfter,
+    });
+  }
 }
 
 export const callbackService = new CallbackService();

@@ -1,5 +1,6 @@
-import { env } from '../../config/env';
+import { env, buildSeamlessRelayUrl } from '../../config/env';
 import { User } from '../user/user.model';
+import { userService } from '../user/user.service';
 import {
   BillingPlan,
   DEFAULT_BILLING_PLAN,
@@ -39,8 +40,11 @@ type TxGetWithdrawResponse = {
 };
 
 export class GameService {
-  private async authenticatePartner(prefix: string, apiSecret: string) {
-    const user = await User.findOne({ prefix }).select('+apiSecretHash');
+  private async authenticatePartner(prefix: string, apiSecret: string, extraSelect = '') {
+    const select = extraSelect
+      ? `+apiSecretHash ${extraSelect}`
+      : '+apiSecretHash';
+    const user = await User.findOne({ prefix }).select(select);
 
     if (!user) {
       throw new UnauthorizedError('Invalid prefix or API secret');
@@ -70,13 +74,20 @@ export class GameService {
   }
 
   async launchV2(input: GameLaunchV2Input) {
-    const user = await this.authenticatePartner(input.prefix, input.apiSecret);
+    const user = await this.authenticatePartner(
+      input.prefix,
+      input.apiSecret,
+      '+callbackAesKeyEncrypted',
+    );
     this.assertGgrAllowsLaunch(user, input.balance);
+
+    await userService.prepareSeamlessLaunch(user, input.callbackUrl);
 
     const upstreamBody = toTxGameLaunchV2Body({
       ...input,
       currencyCode: resolveUserCurrency(user.currency),
     });
+    upstreamBody.callback_url = buildSeamlessRelayUrl(user.prefix);
     return this.executeLaunch(upstreamBody, env.GAME_LAUNCH_V2_UPSTREAM_URL);
   }
 

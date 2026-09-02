@@ -4,6 +4,7 @@ import { sendSuccess } from '../../utils/apiResponse';
 import { gameService } from './game.service';
 import { transactionService } from './transaction.service';
 import { callbackService } from './callback.service';
+import { seamlessCallbackService } from './seamlessCallback.service';
 import { GameLaunchInput, GameLaunchV2Input, GetWithdrawInput } from './game.validation';
 import {
   FetchTransactionsInput,
@@ -53,4 +54,19 @@ export const callbackBalance = asyncHandler(async (req: Request, res: Response) 
 export const callbackCredit = asyncHandler(async (req: Request, res: Response) => {
   const data = await callbackService.setBalance(req.body as CallbackCreditInput);
   return sendSuccess(res, data, 'Balance credited');
+});
+
+export const seamlessCallback = asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const prefix = String(req.params.prefix || '');
+    const body = await seamlessCallbackService.handle(prefix, req.body);
+    return res.status(200).json(body);
+  } catch (err) {
+    console.error('[seamless-callback]', err);
+    return res.status(200).json({
+      code: 1,
+      msg: 'Internal callback error',
+      payload: '',
+    });
+  }
 });

@@ -46,6 +46,13 @@ const envSchema = z.object({
     .default('d5806564bab3b30e0eba2148ebb8e7bd'),
   CRON_SECRET: z.string().trim().optional().default(''),
   GAME_CALLBACK_SECRET: z.string().trim().optional().default(''),
+  /** Upstream (Huidu) AES-256-ECB key. Never expose this to operators. */
+  GAME_UPSTREAM_AES_KEY: z.string().optional().default(''),
+  /**
+   * Public origin Huidu can POST callbacks to (rewritten at Game Launch V2).
+   * Defaults to CLIENT_ORIGIN (the Next.js proxy host).
+   */
+  GAME_CALLBACK_PUBLIC_URL: z.string().trim().optional().default(''),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -57,3 +64,12 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+export function getGameCallbackPublicUrl(): string {
+  const configured = env.GAME_CALLBACK_PUBLIC_URL.trim();
+  return (configured || env.CLIENT_ORIGIN).replace(/\/$/, '');
+}
+
+export function buildSeamlessRelayUrl(prefix: string): string {
+  return `${getGameCallbackPublicUrl()}/api/game/v2/callback/${prefix.trim().toUpperCase()}`;
+}

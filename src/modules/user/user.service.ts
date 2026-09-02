@@ -18,6 +18,7 @@ import {
   decryptApiSecret,
   encryptApiSecret,
   generateApiSecret,
+  generateCallbackAesKey,
   generatePrefix,
   hashApiSecret,
   hashPassword,
@@ -52,6 +53,8 @@ function withCredentialMeta(user: IUserDocument, hasEncrypted?: boolean) {
     apiSecretMasked: maskSecret('00000000000000000000000000000000'),
     hasApiSecret: true,
     canRevealSecret: Boolean(hasEncrypted ?? user.apiSecretEncrypted),
+    callbackAesKeyMasked: maskSecret('00000000000000000000000000000000'),
+    canRevealAesKey: Boolean(user.callbackAesKeyEncrypted),
   });
 }
 
@@ -65,11 +68,13 @@ export class UserService {
 
     const prefix = await ensureUniquePrefix(input.prefix);
     const apiSecretPlain = generateApiSecret();
+    const callbackAesKeyPlain = generateCallbackAesKey();
     const [passwordHash, apiSecretHash] = await Promise.all([
       hashPassword(input.password),
       hashApiSecret(apiSecretPlain),
     ]);
     const apiSecretEncrypted = encryptApiSecret(apiSecretPlain);
+    const callbackAesKeyEncrypted = encryptApiSecret(callbackAesKeyPlain);
 
     const user = await User.create({
       name: input.name,
@@ -80,6 +85,7 @@ export class UserService {
       prefix,
       apiSecretHash,
       apiSecretEncrypted,
+      callbackAesKeyEncrypted,
       whitelistDomain: input.whitelistDomain ?? '',
       whitelistIp: input.whitelistIp ?? '',
       ggrBalance: input.ggrBalance ?? 0,
@@ -97,6 +103,7 @@ export class UserService {
     return {
       user: withCredentialMeta(user, true),
       apiSecret: apiSecretPlain,
+      callbackAesKey: callbackAesKeyPlain,
     };
   }
 
@@ -119,7 +126,7 @@ export class UserService {
     const skip = (query.page - 1) * query.limit;
     const [items, total] = await Promise.all([
       User.find(filter)
-        .select('+apiSecretEncrypted')
+        .select('+apiSecretEncrypted +callbackAesKeyEncrypted')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(query.limit),
@@ -140,7 +147,7 @@ export class UserService {
   }
 
   async getUserById(id: string) {
-    const user = await User.findById(id).select('+apiSecretEncrypted');
+    const user = await User.findById(id).select('+apiSecretEncrypted +callbackAesKeyEncrypted');
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -152,7 +159,7 @@ export class UserService {
       throw new NotFoundError('User not found');
     }
 
-    const user = await User.findById(id).select('+apiSecretEncrypted');
+    const user = await User.findById(id).select('+apiSecretEncrypted +callbackAesKeyEncrypted');
     if (!user || user.role !== UserRole.USER) {
       throw new NotFoundError('User not found');
     }
@@ -170,7 +177,7 @@ export class UserService {
   }
 
   async getProfile(id: string) {
-    const user = await User.findById(id).select('+apiSecretEncrypted');
+    const user = await User.findById(id).select('+apiSecretEncrypted +callbackAesKeyEncrypted');
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -210,7 +217,7 @@ export class UserService {
   }
 
   async updateUser(id: string, input: UpdateUserInput) {
-    const user = await User.findById(id).select('+apiSecretEncrypted');
+    const user = await User.findById(id).select('+apiSecretEncrypted +callbackAesKeyEncrypted');
     if (!user) {
       throw new NotFoundError('User not found');
     }
@@ -284,6 +291,60 @@ export class UserService {
     return {
       user: withCredentialMeta(user, true),
       apiSecret: apiSecretPlain,
+    };
+  }
+
+  async ensureCallbackAesKey(user: IUserDocument): Promise<string> {
+    if (user.callbackAesKeyEncrypted) {
+      try {
+        return decryptApiSecret(user.callbackAesKeyEncrypted);
+      } catch {
+        throw new AppError('Failed to decrypt callback AES key. Please regenerate.', 500);
+      }
+    }
+
+    const plain = generateCallbackAesKey();
+    user.callbackAesKeyEncrypted = encryptApiSecret(plain);
+    await user.save();
+    return plain;
+  }
+
+  async prepareSeamlessLaunch(user: IUserDocument, callbackUrl: string): Promise<string> {
+    const aesKey = await this.ensureCallbackAesKey(user);
+    user.seamlessCallbackUrl = callbackUrl.trim();
+    await user.save();
+    return aesKey;
+  }
+
+  async revealCallbackAesKey(id: string) {
+    const user = await User.findById(id).select(
+      '+callbackAesKeyEncrypted +apiSecretEncrypted',
+    );
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const callbackAesKey = await this.ensureCallbackAesKey(user);
+    return {
+      user: withCredentialMeta(user, Boolean(user.apiSecretEncrypted)),
+      callbackAesKey,
+      callbackAesKeyMasked: maskSecret(callbackAesKey),
+    };
+  }
+
+  async regenerateCallbackAesKey(id: string) {
+    const user = await User.findById(id).select('+callbackAesKeyEncrypted +apiSecretEncrypted');
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const callbackAesKey = generateCallbackAesKey();
+    user.callbackAesKeyEncrypted = encryptApiSecret(callbackAesKey);
+    await user.save();
+
+    return {
+      user: withCredentialMeta(user, true),
+      callbackAesKey,
     };
   }
 }
